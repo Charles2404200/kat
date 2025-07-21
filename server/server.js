@@ -16,25 +16,8 @@ mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("✅ Connected to MongoDB"))
   .catch(err => console.error("❌ MongoDB connection error:", err));
 
-// ✅ CORS cho Vercel + Local
-const allowedOrigins = [
-  "http://localhost:5173",          // local Vite dev
-  "https://kat-psi.vercel.app",     // old frontend on Vercel
-  "https://kat-one.vercel.app"      // new frontend on Vercel
-];
-
-app.use(cors({
-  origin: (origin, callback) => {
-    // Nếu không có origin (Postman) hoặc origin nằm trong danh sách -> cho phép
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.warn("❌ Blocked CORS for origin:", origin);
-      callback(new Error("CORS not allowed for this origin"));
-    }
-  },
-  credentials: true
-}));
+// ✅ FIX NHANH: mở CORS cho tất cả origin
+app.use(cors({ origin: "*"}));
 
 // ✅ JSON body
 app.use(express.json());
