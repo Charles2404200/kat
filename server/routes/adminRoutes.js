@@ -1,22 +1,24 @@
+/* eslint-env node */
 import express from "express";
 import Ticket from "../models/Ticket.js";
-import { Parser } from "json2csv";  // ✅ For CSV export
+import { Parser } from "json2csv";
+import dotenv from 'dotenv';
 
+dotenv.config();
 const router = express.Router();
 
-// Load admin credentials from .env
-const ADMIN_USER = process.env.ADMIN_USER;
-const ADMIN_PASS = process.env.ADMIN_PASS;
-const ADMIN_TOKEN = "admin-secret-token"; // simple static token for now
+// ✅ Hardcode username/password
+const ADMIN_USER = "admin";   // 👉 Thay bằng user mong muốn
+const ADMIN_PASS = "123456";  // 👉 Thay bằng pass mong muốn
+const ADMIN_TOKEN = "admin-secret-token"; // simple static token
 
 /**
- * ✅ Admin Login (reads from .env)
+ * ✅ Admin Login (hardcoded credentials)
  */
 router.post("/login", (req, res) => {
   const { username, password } = req.body;
 
   console.log("🔑 Login attempt:", username, password);
-  console.log("✅ Expected from ENV:", ADMIN_USER, ADMIN_PASS);
 
   if (username === ADMIN_USER && password === ADMIN_PASS) {
     return res.json({ success: true, token: ADMIN_TOKEN });
@@ -31,13 +33,10 @@ router.post("/login", (req, res) => {
  */
 router.get("/tickets", async (req, res) => {
   const { token } = req.headers;
-  if (token !== ADMIN_TOKEN) {
-    return res.status(403).json({ error: "Unauthorized" });
-  }
+  if (token !== ADMIN_TOKEN) return res.status(403).json({ error: "Unauthorized" });
 
   const tickets = await Ticket.find().sort({ createdAt: -1 });
 
-  // ✅ Log to debug servicesUsed
   console.log("📋 Tickets for admin:", tickets.map(t => ({
     email: t.buyerEmail,
     servicesUsed: t.servicesUsed
@@ -51,9 +50,7 @@ router.get("/tickets", async (req, res) => {
  */
 router.delete("/ticket/:id", async (req, res) => {
   const { token } = req.headers;
-  if (token !== ADMIN_TOKEN) {
-    return res.status(403).json({ error: "Unauthorized" });
-  }
+  if (token !== ADMIN_TOKEN) return res.status(403).json({ error: "Unauthorized" });
 
   const { id } = req.params;
   await Ticket.findByIdAndDelete(id);
@@ -65,15 +62,13 @@ router.delete("/ticket/:id", async (req, res) => {
  */
 router.get("/dashboard", async (req, res) => {
   const { token } = req.headers;
-  if (token !== ADMIN_TOKEN) {
-    return res.status(403).json({ error: "Unauthorized" });
-  }
+  if (token !== ADMIN_TOKEN) return res.status(403).json({ error: "Unauthorized" });
 
   const totalTickets = await Ticket.countDocuments();
   const checkedInTickets = await Ticket.countDocuments({ checkedIn: true });
   const notCheckedInTickets = totalTickets - checkedInTickets;
 
-  // ✅ Services used
+  // ✅ Count services usage
   const serviceStats = {
     food: await Ticket.countDocuments({ "servicesUsed.food": true }),
     drink: await Ticket.countDocuments({ "servicesUsed.drink": true }),
@@ -92,17 +87,34 @@ router.get("/dashboard", async (req, res) => {
 });
 
 /**
+ * ✅ Danh sách user đã dùng ít nhất 1 dịch vụ
+ */
+router.get("/service-usage", async (req, res) => {
+  const { token } = req.headers;
+  if (token !== ADMIN_TOKEN) return res.status(403).json({ error: "Unauthorized" });
+
+  const tickets = await Ticket.find({
+    $or: [
+      { "servicesUsed.food": true },
+      { "servicesUsed.drink": true },
+      { "servicesUsed.store": true }
+    ]
+  })
+    .sort({ updatedAt: -1 })
+    .lean();
+
+  res.json({ success: true, tickets });
+});
+
+/**
  * ✅ Export tickets as CSV
  */
 router.get("/export", async (req, res) => {
   const { token } = req.headers;
-  if (token !== ADMIN_TOKEN) {
-    return res.status(403).json({ error: "Unauthorized" });
-  }
+  if (token !== ADMIN_TOKEN) return res.status(403).json({ error: "Unauthorized" });
 
   const tickets = await Ticket.find().lean();
 
-  // ✅ Prepare export-friendly data
   const exportData = tickets.map(t => ({
     email: t.buyerEmail,
     ticketType: t.ticketType,
@@ -133,24 +145,6 @@ router.get("/export", async (req, res) => {
   res.header("Content-Type", "text/csv");
   res.attachment("tickets_export.csv");
   return res.send(csv);
-});
-
-/**
- * ✅ Danh sách user đã dùng ít nhất 1 dịch vụ
- */
-router.get("/service-usage", async (req, res) => {
-  const { token } = req.headers;
-  if (token !== ADMIN_TOKEN) return res.status(403).json({ error: "Unauthorized" });
-
-  const tickets = await Ticket.find({
-    $or: [
-      { "servicesUsed.food": true },
-      { "servicesUsed.drink": true },
-      { "servicesUsed.store": true }
-    ]
-  }).sort({ updatedAt: -1 });
-
-  res.json({ success: true, tickets });
 });
 
 /**
@@ -186,6 +180,5 @@ router.get("/export-services", async (req, res) => {
   res.attachment("service_usage.csv");
   return res.send(csv);
 });
-
 
 export default router;
