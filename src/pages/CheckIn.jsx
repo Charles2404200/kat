@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import Navbar from "../components/Navbar";
 import { Html5QrcodeScanner } from "html5-qrcode";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+const API_BASE = "https://kat-j9ym.onrender.com";
 
 export default function CheckIn() {
   const [validationResult, setValidationResult] = useState(null);

@@ -2,7 +2,8 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 
 // ✅ Lấy API_BASE từ biến môi trường
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+const API_BASE = "https://kat-j9ym.onrender.com";
+
 
 export default function FakePayment() {
   const [searchParams] = useSearchParams();
