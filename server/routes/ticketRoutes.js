@@ -38,7 +38,7 @@ router.post("/create", async (req, res) => {
   // ✅ 2. If pending → return same QR
   const existingPending = await Ticket.findOne({ buyerEmail: normalizedEmail, status: "pending" });
   if (existingPending) {
-    const paymentLink = `http://localhost:5173/fake-payment?ticketId=${existingPending._id}`;
+    const paymentLink = `http://kat-charles2404200s-projects.vercel.app/fake-payment?ticketId=${existingPending._id}`;
     const paymentQRUrl = await QRCode.toDataURL(paymentLink);
 
     return res.status(409).json({
@@ -62,7 +62,7 @@ router.post("/create", async (req, res) => {
     paymentMethod,
   });
 
-  const paymentLink = `http://localhost:5173/fake-payment?ticketId=${ticket._id}`;
+  const paymentLink = `http://kat-charles2404200s-projects.vercel.app/fake-payment?ticketId=${ticket._id}`;
   const paymentQRUrl = await QRCode.toDataURL(paymentLink);
 
   res.json({
