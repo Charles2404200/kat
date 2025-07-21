@@ -6,6 +6,7 @@ import ticketRoutes from "./routes/ticketRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import checkinRoutes from "./routes/checkinRoutes.js";
 import serviceRedeemRoutes from "./routes/serviceRedeemRoutes.js";
+import activityLogRoutes from "./routes/activityLogRoutes.js";
 
 dotenv.config();
 const app = express();
@@ -24,6 +25,7 @@ app.use("/api/tickets", ticketRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/checkin", checkinRoutes);
 app.use("/api/service-redeem", serviceRedeemRoutes);
+app.use("/api/admin", activityLogRoutes);
 
 // Test route
 app.get('/', (req, res) => {

@@ -1,7 +1,7 @@
 import express from "express";
 import Ticket from "../models/Ticket.js";
 import crypto from "crypto";
-import Log from "../models/Log.js";
+import { appendLog } from "./adminRoutes.js";
 
 const router = express.Router();
 
@@ -29,7 +29,6 @@ router.post("/validate", async (req, res) => {
       return res.status(403).json({ success: false, message: "❌ Security check failed! QR tampered." });
     }
 
-    // ✅ Just validate, don’t mark checkedIn
     return res.json({
       success: true,
       message: ticket.checkedIn
@@ -51,7 +50,7 @@ router.post("/validate", async (req, res) => {
 });
 
 /**
- * ✅ 2. Manual Gate Check-In (actually mark checkedIn)
+ * ✅ 2. Manual Gate Check-In
  */
 router.post("/manual-gate", async (req, res) => {
   try {
@@ -66,9 +65,11 @@ router.post("/manual-gate", async (req, res) => {
       return res.status(409).json({ success: false, message: "⚠️ Ticket already checked in!" });
     }
 
-    // ✅ Mark checkedIn
     ticket.checkedIn = true;
     await ticket.save();
+
+    // ✅ Ghi log
+    appendLog("✅ GATE CHECK-IN", ticket.buyerEmail, "Staff");
 
     return res.json({
       success: true,
@@ -88,22 +89,23 @@ router.post("/manual-gate", async (req, res) => {
 });
 
 /**
- * ✅ 3. Validate & Redeem Specific Service (food, drink, store)
+ * ✅ 3. QR Redeem Specific Service
  */
 router.post("/service", async (req, res) => {
   try {
     const { ticketId, hash, serviceType } = req.body;
 
+    // ✅ Validate service type
     if (!["food", "drink", "store"].includes(serviceType)) {
-      return res.status(400).json({ success: false, message: "❌ Invalid service type!" });
+      return res.status(400).json({ success: false, message: "❌ Invalid service!" });
     }
 
     const ticket = await Ticket.findById(ticketId);
     if (!ticket || ticket.status !== "paid") {
-      return res.status(404).json({ success: false, message: "❌ Ticket not valid or unpaid!" });
+      return res.status(404).json({ success: false, message: "❌ Invalid ticket!" });
     }
 
-    // ✅ Validate QR hash
+    // ✅ QR hash check
     const expectedHash = generateTicketHash(ticket._id.toString(), ticket.buyerEmail);
     if (hash !== expectedHash) {
       return res.status(403).json({ success: false, message: "❌ QR tampered or invalid!" });
@@ -111,44 +113,38 @@ router.post("/service", async (req, res) => {
 
     // ✅ Must gate check-in first
     if (!ticket.checkedIn) {
-      return res.status(409).json({ success: false, message: "⚠️ Must check-in at gate first!" });
+      return res.status(409).json({ success: false, message: "⚠️ Must check-in first!" });
     }
 
-    // ✅ Always init servicesUsed if missing
-    if (!ticket.servicesUsed) {
-      ticket.servicesUsed = { food: false, drink: false, store: false };
-    }
+    // ✅ Init servicesUsed if missing
+    if (!ticket.servicesUsed) ticket.servicesUsed = {};
 
     // ✅ Prevent double redeem
     if (ticket.servicesUsed[serviceType]) {
-      return res.status(409).json({
-        success: false,
-        message: `⚠️ ${serviceType.toUpperCase()} service already redeemed!`
-      });
+      return res.status(409).json({ success: false, message: `⚠️ ${serviceType} already used` });
     }
 
-    // ✅ Mark service as redeemed
+    // ✅ Mark service as redeemed + lưu thời gian redeem
     ticket.servicesUsed[serviceType] = true;
-
-    // ✅ FORCE mongoose to detect nested object change
+    ticket.servicesUsed[`${serviceType}At`] = new Date();   
     ticket.markModified("servicesUsed");
     await ticket.save();
 
-    console.log("✅ Saved servicesUsed:", ticket.servicesUsed);
+    // ✅ Log redeem
+    appendLog(`✅ ${serviceType.toUpperCase()} REDEEM`, ticket.buyerEmail, "Staff");
 
     return res.json({
       success: true,
-      message: `✅ ${serviceType.toUpperCase()} service redeemed successfully!`,
+      message: `✅ ${serviceType.toUpperCase()} redeemed successfully`,
       ticketInfo: {
         buyerEmail: ticket.buyerEmail,
         ticketType: ticket.ticketType,
         servicesUsed: ticket.servicesUsed
       }
     });
-
-  } catch (err) {
-    console.error("❌ Service Validation Error:", err);
-    res.status(500).json({ success: false, message: "Server error during service validation" });
+  } catch (e) {
+    console.error("❌ Service Validation Error:", e);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 });
 

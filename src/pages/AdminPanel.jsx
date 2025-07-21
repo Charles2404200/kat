@@ -12,6 +12,7 @@ export default function AdminPanel() {
   const [tickets, setTickets] = useState([]);
   const [dashboardStats, setDashboardStats] = useState(null);
   const [serviceUsage, setServiceUsage] = useState([]);
+  const [logs, setLogs] = useState([]);
 
   // ✅ Login admin
   const handleLogin = async (e) => {
@@ -28,10 +29,11 @@ export default function AdminPanel() {
         setIsLoggedIn(true);
         setToken(data.token);
 
-        // ✅ load toàn bộ data sau khi login
+        // ✅ load data sau khi login
         fetchDashboard(data.token);
         fetchTickets(data.token);
         fetchServiceUsage(data.token);
+        fetchLogs(data.token);
       } else {
         alert("❌ Wrong username or password!");
       }
@@ -77,6 +79,19 @@ export default function AdminPanel() {
       if (data.success) setServiceUsage(data.tickets);
     } catch (err) {
       console.error("Service usage fetch error:", err);
+    }
+  };
+
+  // ✅ Fetch Logs
+  const fetchLogs = async (authToken = token) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/logs`, {
+        headers: { token: authToken },
+      });
+      const data = await res.json();
+      if (data.success) setLogs(data.logs);
+    } catch (err) {
+      console.error("Logs fetch error:", err);
     }
   };
 
@@ -298,6 +313,39 @@ export default function AdminPanel() {
     </>
   );
 
+  // ✅ Logs view
+  const LogsView = () => (
+    <div className="mt-4">
+      <h3>📜 Activity Logs</h3>
+      {logs.length === 0 ? (
+        <p className="text-muted text-center">No logs recorded yet.</p>
+      ) : (
+        <div className="table-responsive">
+          <table className="table table-bordered text-center">
+            <thead className="table-dark">
+              <tr>
+                <th>Time</th>
+                <th>Email</th>
+                <th>Action</th>
+                <th>Staff</th>
+              </tr>
+            </thead>
+            <tbody>
+              {logs.map((log, idx) => (
+                <tr key={idx}>
+                  <td>{log.time}</td>
+                  <td>{log.email}</td>
+                  <td>{log.action}</td>
+                  <td>{log.staff}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="container" style={{ marginTop: "80px" }}>
       <div className="btn-group mb-4">
@@ -328,11 +376,21 @@ export default function AdminPanel() {
         >
           🍔 Service Usage
         </button>
+        <button
+          className={`btn ${activeTab === "logs" ? "btn-primary" : "btn-outline-primary"}`}
+          onClick={() => {
+            setActiveTab("logs");
+            fetchLogs();
+          }}
+        >
+          📜 Logs
+        </button>
       </div>
 
       {activeTab === "dashboard" && <DashboardView />}
       {activeTab === "tickets" && <TicketView />}
       {activeTab === "services" && <ServiceUsageView />}
+      {activeTab === "logs" && <LogsView />}
     </div>
   );
 }

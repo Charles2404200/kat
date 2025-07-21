@@ -2,7 +2,9 @@
 import express from "express";
 import Ticket from "../models/Ticket.js";
 import { Parser } from "json2csv";
-import dotenv from 'dotenv';
+import dotenv from "dotenv";
+import fs from "fs";
+import path from "path";
 
 dotenv.config();
 const router = express.Router();
@@ -12,6 +14,31 @@ const ADMIN_USER = process.env.ADMIN_USER || "admin";
 const ADMIN_PASS = process.env.ADMIN_PASS || "123456";
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "admin-secret-token";
 
+// ✅ Log file path
+const LOG_FILE = path.join(process.cwd(), "logs.json");
+
+// ✅ Helper: append a log entry
+export function appendLog(action, email, staff = "System") {
+  let logs = [];
+  if (fs.existsSync(LOG_FILE)) {
+    logs = JSON.parse(fs.readFileSync(LOG_FILE, "utf8"));
+  }
+
+  logs.unshift({
+    time: new Date().toLocaleString("en-GB", { 
+      day: "2-digit", month: "2-digit", year: "numeric",
+      hour: "2-digit", minute: "2-digit", second: "2-digit"
+    }),  // ✅ sẽ ra "21/07/2025, 15:30:10"
+    email,
+    action,
+    staff,
+  });
+
+  // ✅ keep only last 500 logs
+  if (logs.length > 500) logs = logs.slice(0, 500);
+
+  fs.writeFileSync(LOG_FILE, JSON.stringify(logs, null, 2));
+}
 
 /**
  * ✅ Admin Login (hardcoded credentials)
@@ -38,10 +65,13 @@ router.get("/tickets", async (req, res) => {
 
   const tickets = await Ticket.find().sort({ createdAt: -1 });
 
-  console.log("📋 Tickets for admin:", tickets.map(t => ({
-    email: t.buyerEmail,
-    servicesUsed: t.servicesUsed
-  })));
+  console.log(
+    "📋 Tickets for admin:",
+    tickets.map((t) => ({
+      email: t.buyerEmail,
+      servicesUsed: t.servicesUsed,
+    }))
+  );
 
   res.json({ success: true, tickets });
 });
@@ -54,7 +84,12 @@ router.delete("/ticket/:id", async (req, res) => {
   if (token !== ADMIN_TOKEN) return res.status(403).json({ error: "Unauthorized" });
 
   const { id } = req.params;
-  await Ticket.findByIdAndDelete(id);
+  const ticket = await Ticket.findByIdAndDelete(id);
+
+  if (ticket) {
+    appendLog("🗑 Ticket deleted", ticket.buyerEmail, "Admin");
+  }
+
   res.json({ success: true, message: "Ticket deleted" });
 });
 
@@ -98,8 +133,8 @@ router.get("/service-usage", async (req, res) => {
     $or: [
       { "servicesUsed.food": true },
       { "servicesUsed.drink": true },
-      { "servicesUsed.store": true }
-    ]
+      { "servicesUsed.store": true },
+    ],
   })
     .sort({ updatedAt: -1 })
     .lean();
@@ -116,7 +151,7 @@ router.get("/export", async (req, res) => {
 
   const tickets = await Ticket.find().lean();
 
-  const exportData = tickets.map(t => ({
+  const exportData = tickets.map((t) => ({
     email: t.buyerEmail,
     ticketType: t.ticketType,
     quantity: t.quantity,
@@ -125,7 +160,7 @@ router.get("/export", async (req, res) => {
     foodUsed: t.servicesUsed?.food ? "Yes" : "No",
     drinkUsed: t.servicesUsed?.drink ? "Yes" : "No",
     storeUsed: t.servicesUsed?.store ? "Yes" : "No",
-    createdAt: t.createdAt ? new Date(t.createdAt).toLocaleString() : ""
+    createdAt: t.createdAt ? new Date(t.createdAt).toLocaleString() : "",
   }));
 
   const fields = [
@@ -137,7 +172,7 @@ router.get("/export", async (req, res) => {
     "foodUsed",
     "drinkUsed",
     "storeUsed",
-    "createdAt"
+    "createdAt",
   ];
 
   const json2csv = new Parser({ fields });
@@ -159,27 +194,51 @@ router.get("/export-services", async (req, res) => {
     $or: [
       { "servicesUsed.food": true },
       { "servicesUsed.drink": true },
-      { "servicesUsed.store": true }
-    ]
+      { "servicesUsed.store": true },
+    ],
   }).lean();
 
-  const exportData = tickets.map(t => ({
+  const exportData = tickets.map((t) => ({
     Email: t.buyerEmail,
     TicketType: t.ticketType,
     CheckedIn: t.checkedIn ? "Yes" : "No",
     Food: t.servicesUsed?.food ? "Yes" : "No",
     Drink: t.servicesUsed?.drink ? "Yes" : "No",
     Store: t.servicesUsed?.store ? "Yes" : "No",
-    UpdatedAt: t.updatedAt ? new Date(t.updatedAt).toLocaleString() : ""
+    UpdatedAt: t.updatedAt ? new Date(t.updatedAt).toLocaleString() : "",
   }));
 
-  const fields = ["Email", "TicketType", "CheckedIn", "Food", "Drink", "Store", "UpdatedAt"];
+  const fields = [
+    "Email",
+    "TicketType",
+    "CheckedIn",
+    "Food",
+    "Drink",
+    "Store",
+    "UpdatedAt",
+  ];
   const parser = new Parser({ fields });
   const csv = parser.parse(exportData);
 
   res.header("Content-Type", "text/csv");
   res.attachment("service_usage.csv");
   return res.send(csv);
+});
+
+/**
+ * ✅ NEW: Get Logs (admin only)
+ */
+router.get("/logs", async (req, res) => {
+  const { token } = req.headers;
+  if (token !== ADMIN_TOKEN)
+    return res.status(403).json({ success: false, error: "Unauthorized" });
+
+  let logs = [];
+  if (fs.existsSync(LOG_FILE)) {
+    logs = JSON.parse(fs.readFileSync(LOG_FILE, "utf8"));
+  }
+
+  res.json({ success: true, logs });
 });
 
 export default router;
