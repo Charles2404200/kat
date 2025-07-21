@@ -1,14 +1,13 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import Navbar from "../components/Navbar";
-import { Html5QrcodeScanner, Html5Qrcode } from "html5-qrcode";
+import { Html5QrcodeScanner } from "html5-qrcode";
 
-// ✅ Lấy API_BASE từ biến môi trường
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 
 export default function CheckIn() {
   const [validationResult, setValidationResult] = useState(null);
   const [scanning, setScanning] = useState(true);
-  const qrRegionRef = useRef(null);
+  const [ticketId, setTicketId] = useState(null);
 
   // ✅ Validate QR payload with backend
   const validateTicket = async (payload) => {
@@ -31,6 +30,11 @@ export default function CheckIn() {
         message: data.message,
         ticketInfo: data.ticketInfo || null,
       });
+
+      // ✅ Save ticketId for manual confirm later
+      if (data.success && data.ticketInfo?.id) {
+        setTicketId(data.ticketInfo.id);
+      }
     } catch (err) {
       console.error("Validation Error:", err);
       setValidationResult({
@@ -41,16 +45,36 @@ export default function CheckIn() {
     }
   };
 
-  // ✅ Handle scanned text (camera or image upload)
+  // ✅ Confirm Check-In after scan
+  const confirmCheckIn = async () => {
+    if (!ticketId) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/checkin/manual-gate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticketId }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        alert("✅ Ticket Checked-In Successfully!");
+        window.location.reload(); // reset for next scan
+      } else {
+        alert(data.message);
+      }
+    } catch (err) {
+      console.error("Manual check-in error:", err);
+      alert("❌ Server error while confirming check-in!");
+    }
+  };
+
+  // ✅ Handle scanned QR
   const handleDecodedText = async (decodedText) => {
     console.log("✅ QR Scanned/Decoded:", decodedText);
-
     try {
       const payload = JSON.parse(decodedText);
       await validateTicket(payload);
-
-      // Stop scanning after success
-      setScanning(false);
+      setScanning(false); // stop scanning once QR is validated
     } catch (err) {
       console.error("Invalid QR Data:", err);
       setValidationResult({
@@ -61,7 +85,7 @@ export default function CheckIn() {
     }
   };
 
-  // ✅ Initialize Camera Scanner
+  // ✅ Initialize QR scanner
   useEffect(() => {
     if (!scanning) return;
 
@@ -74,7 +98,7 @@ export default function CheckIn() {
     scanner.render(
       (decodedText) => handleDecodedText(decodedText),
       (error) => {
-        // console.warn("QR Scan Error", error);
+        // ignore scan errors
       }
     );
 
@@ -82,27 +106,6 @@ export default function CheckIn() {
       scanner.clear().catch((err) => console.error("Clear scanner error:", err));
     };
   }, [scanning]);
-
-  // ✅ Handle file upload
-  const handleFileUpload = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const html5QrCode = new Html5Qrcode("qr-reader-temp"); // temp invisible div
-    try {
-      const result = await html5QrCode.scanFile(file, true);
-      await handleDecodedText(result);
-    } catch (err) {
-      console.error("File scan error:", err);
-      setValidationResult({
-        success: false,
-        title: "❌ Failed to Decode",
-        message: "This image does not contain a valid QR code.",
-      });
-    } finally {
-      html5QrCode.clear();
-    }
-  };
 
   return (
     <>
@@ -113,32 +116,12 @@ export default function CheckIn() {
           <div className="col-md-8">
             <div className="card shadow-lg">
               <div className="card-body text-center">
-                <h2 className="fw-bold mb-4">✅ Ticket Check-In</h2>
-                <p className="text-muted">
-                  Scan the QR code on the ticket to validate entry
-                </p>
+                <h2 className="fw-bold mb-4">🚪 Gate Check-In</h2>
+                <p className="text-muted">Scan the QR code on the ticket</p>
 
-                {/* ✅ QR Scanner (Camera) */}
+                {/* ✅ QR Scanner */}
                 {scanning && (
-                  <div
-                    id="qr-reader"
-                    ref={qrRegionRef}
-                    style={{ width: "100%", maxWidth: "400px", margin: "0 auto" }}
-                  ></div>
-                )}
-
-                {/* ✅ OR Upload QR Image */}
-                {scanning && (
-                  <div className="mt-3">
-                    <p className="text-muted">📂 Or upload a QR code image</p>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFileUpload}
-                      className="form-control"
-                    />
-                    <div id="qr-reader-temp" style={{ display: "none" }}></div>
-                  </div>
+                  <div id="qr-reader" style={{ width: "100%", maxWidth: "400px", margin: "0 auto" }}></div>
                 )}
 
                 {/* ✅ Show validation result */}
@@ -156,7 +139,7 @@ export default function CheckIn() {
                       {validationResult.title}
                     </div>
                     <div className="card-body">
-                      <p className="card-text">{validationResult.message}</p>
+                      <p>{validationResult.message}</p>
                       {validationResult.ticketInfo && (
                         <>
                           <p>
@@ -167,30 +150,31 @@ export default function CheckIn() {
                             {validationResult.ticketInfo.ticketType.toUpperCase()} x
                             {validationResult.ticketInfo.quantity}
                           </p>
+                          <p>
+                            <strong>Checked-In:</strong>{" "}
+                            {validationResult.ticketInfo.checkedIn ? "✅ Yes" : "❌ No"}
+                          </p>
                         </>
                       )}
                     </div>
                   </div>
                 )}
 
-                {/* ✅ Buttons after scan */}
-                {!scanning && (
-                  <div className="mt-4 d-flex justify-content-center gap-3">
-                    <button className="btn btn-primary" onClick={() => window.location.reload()}>
-                      🔄 Scan Another
+                {/* ✅ Show Confirm Button if valid & NOT already checked-in */}
+                {validationResult?.success && !validationResult.ticketInfo?.checkedIn && (
+                  <div className="mt-4">
+                    <button className="btn btn-primary btn-lg" onClick={confirmCheckIn}>
+                      ✅ Confirm Check-In
                     </button>
-                    <a href="/" className="btn btn-secondary">
-                      ← Back to Home
-                    </a>
                   </div>
                 )}
 
-                {/* ✅ Cancel while scanning */}
-                {scanning && (
-                  <div className="mt-3">
-                    <a href="/" className="btn btn-outline-secondary">
-                      ❌ Cancel
-                    </a>
+                {/* ✅ Buttons after scan */}
+                {!scanning && (
+                  <div className="mt-4">
+                    <button className="btn btn-secondary" onClick={() => window.location.reload()}>
+                      🔄 Scan Another Ticket
+                    </button>
                   </div>
                 )}
               </div>

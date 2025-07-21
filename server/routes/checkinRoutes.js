@@ -1,6 +1,7 @@
 import express from "express";
 import Ticket from "../models/Ticket.js";
 import crypto from "crypto";
+import Log from "../models/Log.js";
 
 const router = express.Router();
 
@@ -11,66 +12,83 @@ function generateTicketHash(ticketId, email) {
 }
 
 /**
- * ✅ 1. Validate ticket at Gate Entry
+ * ✅ 1. Validate QR ONLY (no DB change)
  */
 router.post("/validate", async (req, res) => {
   try {
     const { ticketId, hash } = req.body;
-
     const ticket = await Ticket.findById(ticketId);
 
     if (!ticket || ticket.status !== "paid") {
-      return res.status(404).json({
-        success: false,
-        message: "❌ Invalid or unpaid ticket!"
-      });
+      return res.status(404).json({ success: false, message: "❌ Invalid or unpaid ticket!" });
     }
 
-    // ✅ Check if hash matches
+    // ✅ Verify hash
     const expectedHash = generateTicketHash(ticket._id.toString(), ticket.buyerEmail);
     if (hash !== expectedHash) {
-      return res.status(403).json({
-        success: false,
-        message: "❌ Security check failed! QR tampered."
-      });
+      return res.status(403).json({ success: false, message: "❌ Security check failed! QR tampered." });
     }
 
-    // ✅ Prevent double check-in
+    // ✅ Just validate, don’t mark checkedIn
+    return res.json({
+      success: true,
+      message: ticket.checkedIn
+        ? "⚠️ Ticket already checked in!"
+        : "✅ Ticket valid, ready for manual confirmation.",
+      ticketInfo: {
+        id: ticket._id,
+        buyerEmail: ticket.buyerEmail,
+        ticketType: ticket.ticketType,
+        quantity: ticket.quantity,
+        checkedIn: ticket.checkedIn,
+        servicesUsed: ticket.servicesUsed || {},
+      }
+    });
+  } catch (err) {
+    console.error("❌ Ticket Validation Error:", err);
+    res.status(500).json({ success: false, message: "Server error during validation." });
+  }
+});
+
+/**
+ * ✅ 2. Manual Gate Check-In (actually mark checkedIn)
+ */
+router.post("/manual-gate", async (req, res) => {
+  try {
+    const { ticketId } = req.body;
+    const ticket = await Ticket.findById(ticketId);
+
+    if (!ticket || ticket.status !== "paid") {
+      return res.status(404).json({ success: false, message: "❌ Invalid or unpaid ticket!" });
+    }
+
     if (ticket.checkedIn) {
-      return res.status(409).json({
-        success: false,
-        message: "⚠️ Ticket already checked in!"
-      });
+      return res.status(409).json({ success: false, message: "⚠️ Ticket already checked in!" });
     }
 
-    // ✅ Mark as checked in
+    // ✅ Mark checkedIn
     ticket.checkedIn = true;
     await ticket.save();
 
     return res.json({
       success: true,
-      message: "✅ Ticket valid! Welcome to KAT-2 Festival 🎉",
+      message: "✅ Gate Check-In Successful!",
       ticketInfo: {
         buyerEmail: ticket.buyerEmail,
         ticketType: ticket.ticketType,
         quantity: ticket.quantity,
         checkedIn: true,
-        servicesUsed: ticket.servicesUsed || {}
+        servicesUsed: ticket.servicesUsed || {},
       }
     });
-
   } catch (err) {
-    console.error("❌ Ticket Validation Error:", err);
-    res.status(500).json({
-      success: false,
-      message: "Server error during validation."
-    });
+    console.error("❌ Manual Gate Check-In Error:", err);
+    res.status(500).json({ success: false, message: "Server error during manual gate check-in." });
   }
 });
 
 /**
- * ✅ 2. Validate & Redeem Specific Service (food, drink, store)
- * body: { ticketId, hash, serviceType }
+ * ✅ 3. Validate & Redeem Specific Service (food, drink, store)
  */
 router.post("/service", async (req, res) => {
   try {
@@ -133,6 +151,5 @@ router.post("/service", async (req, res) => {
     res.status(500).json({ success: false, message: "Server error during service validation" });
   }
 });
-
 
 export default router;

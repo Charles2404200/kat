@@ -1,42 +1,82 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import Navbar from "../components/Navbar";
 import { Html5QrcodeScanner } from "html5-qrcode";
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+
 export default function ServiceCheck() {
-  const [serviceType, setServiceType] = useState("food");
+  const [serviceType, setServiceType] = useState("food"); // selected service
   const [validationResult, setValidationResult] = useState(null);
+  const [scanning, setScanning] = useState(true);
+  const [ticketId, setTicketId] = useState(null);
 
-  const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
-
-  const validateService = async (payload) => {
+  // ✅ Step 1: Validate QR only (no redeem)
+  const validateTicketForService = async (payload) => {
     try {
-      const res = await fetch(`${API_URL}/api/checkin/service`, {
+      const res = await fetch(`${API_BASE}/api/checkin/validate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ticketId: payload.ticketId, hash: payload.hash, serviceType }),
+        body: JSON.stringify({
+          ticketId: payload.ticketId,
+          hash: payload.hash,
+        }),
       });
 
       const data = await res.json();
+      console.log("Validation result:", data);
+
       setValidationResult({
         success: data.success,
-        title: data.success ? `✅ ${serviceType.toUpperCase()} Redeemed` : "❌ Failed",
+        title: data.success ? "✅ Ticket Valid!" : "❌ Invalid Ticket",
         message: data.message,
         ticketInfo: data.ticketInfo || null,
       });
+
+      // save ticketId for confirm later
+      if (data.success && data.ticketInfo?.id) {
+        setTicketId(data.ticketInfo.id);
+      }
+
+      setScanning(false); // stop scanner
     } catch (err) {
-      console.error("Service Validation Error:", err);
+      console.error("Validation error:", err);
       setValidationResult({
         success: false,
-        title: "❌ Server Error",
-        message: "Could not validate the service. Try again.",
+        title: "❌ QR Invalid",
+        message: "Could not validate ticket. Try again.",
       });
     }
   };
 
+  // ✅ Step 2: Confirm redeem
+  const confirmRedeemService = async () => {
+  if (!ticketId) return;
+  try {
+    const res = await fetch(`${API_BASE}/api/service-redeem/manual-service`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ticketId, serviceType }),
+    });
+
+    const data = await res.json();
+    if (data.success) {
+      alert(`✅ ${serviceType.toUpperCase()} redeemed successfully!`);
+      window.location.reload();
+    } else {
+      alert(data.message);
+    }
+  } catch (err) {
+    console.error("Confirm redeem error:", err);
+    alert("❌ Server error while redeeming service!");
+  }
+};
+
+  // ✅ Scan handler
   const handleDecodedText = async (decodedText) => {
+    console.log("QR scanned:", decodedText);
     try {
       const payload = JSON.parse(decodedText);
-      await validateService(payload);
+      await validateTicketForService(payload);
     } catch (err) {
       console.error("Invalid QR:", err);
       setValidationResult({
@@ -47,18 +87,25 @@ export default function ServiceCheck() {
     }
   };
 
+  // ✅ Init scanner
   useEffect(() => {
+    if (!scanning) return;
+
     const scanner = new Html5QrcodeScanner(
       "qr-reader-service",
       { fps: 10, qrbox: { width: 250, height: 250 } },
       false
     );
 
-    scanner.render(handleDecodedText, () => {});
+    scanner.render(
+      (decodedText) => handleDecodedText(decodedText),
+      () => {}
+    );
+
     return () => {
       scanner.clear().catch(() => {});
     };
-  }, [serviceType]); // restart scanner if service changes
+  }, [serviceType, scanning]);
 
   return (
     <>
@@ -69,8 +116,9 @@ export default function ServiceCheck() {
             <div className="card shadow-lg">
               <div className="card-body text-center">
                 <h2 className="fw-bold mb-3">🍔 Service Redeem</h2>
-                <p className="text-muted">Select service area then scan QR to redeem</p>
+                <p className="text-muted">Select service → scan QR → confirm redeem</p>
 
+                {/* Select which service location */}
                 <div className="mb-3">
                   <select
                     className="form-select"
@@ -83,9 +131,12 @@ export default function ServiceCheck() {
                   </select>
                 </div>
 
-                {/* ✅ QR Scanner Auto-start */}
-                <div id="qr-reader-service" style={{ width: "100%", maxWidth: "400px", margin: "0 auto" }}></div>
+                {/* QR scanner */}
+                {scanning && (
+                  <div id="qr-reader-service" style={{ width: "100%", maxWidth: "400px", margin: "0 auto" }}></div>
+                )}
 
+                {/* Show validation result */}
                 {validationResult && (
                   <div
                     className={`card mt-4 border-${validationResult.success ? "success" : "danger"}`}
@@ -98,15 +149,15 @@ export default function ServiceCheck() {
                       {validationResult.title}
                     </div>
                     <div className="card-body">
-                      <p className="card-text">{validationResult.message}</p>
+                      <p>{validationResult.message}</p>
                       {validationResult.ticketInfo && (
                         <>
+                          <p><strong>Email:</strong> {validationResult.ticketInfo.buyerEmail}</p>
+                          <p><strong>Ticket:</strong> {validationResult.ticketInfo.ticketType.toUpperCase()}</p>
+                          <p><strong>Checked-In:</strong> {validationResult.ticketInfo.checkedIn ? "✅ Yes" : "❌ No"}</p>
                           <p>
-                            <strong>Email:</strong> {validationResult.ticketInfo.buyerEmail}
-                          </p>
-                          <p>
-                            <strong>Ticket:</strong>{" "}
-                            {validationResult.ticketInfo.ticketType.toUpperCase()}
+                            <strong>Already Used:</strong>{" "}
+                            {validationResult.ticketInfo.servicesUsed?.[serviceType] ? "✅ Yes" : "❌ No"}
                           </p>
                         </>
                       )}
@@ -114,11 +165,25 @@ export default function ServiceCheck() {
                   </div>
                 )}
 
-                <div className="mt-3">
-                  <a href="/" className="btn btn-outline-secondary">
-                    ← Back to Home
-                  </a>
-                </div>
+                {/* Show Confirm button if valid + NOT redeemed yet */}
+                {validationResult?.success &&
+                  validationResult.ticketInfo?.checkedIn &&
+                  !validationResult.ticketInfo?.servicesUsed?.[serviceType] && (
+                    <div className="mt-4">
+                      <button className="btn btn-primary btn-lg" onClick={confirmRedeemService}>
+                        ✅ Confirm {serviceType.toUpperCase()} Redeem
+                      </button>
+                    </div>
+                )}
+
+                {/* After scan, allow reset */}
+                {!scanning && (
+                  <div className="mt-4">
+                    <button className="btn btn-secondary" onClick={() => window.location.reload()}>
+                      🔄 Scan Another Ticket
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
