@@ -18,12 +18,14 @@ mongoose.connect(process.env.MONGO_URI)
 
 // ✅ CORS cho Vercel + Local
 const allowedOrigins = [
-  "http://localhost:5173",         // local Vite dev
-  "https://kat-psi.vercel.app"     // deployed frontend
+  "http://localhost:5173",          // local Vite dev
+  "https://kat-psi.vercel.app",     // old frontend on Vercel
+  "https://kat-one.vercel.app"      // new frontend on Vercel
 ];
 
 app.use(cors({
   origin: (origin, callback) => {
+    // Nếu không có origin (Postman) hoặc origin nằm trong danh sách -> cho phép
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
