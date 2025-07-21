@@ -8,9 +8,10 @@ dotenv.config();
 const router = express.Router();
 
 // ✅ Hardcode username/password
-const ADMIN_USER = "admin";   // 👉 Thay bằng user mong muốn
-const ADMIN_PASS = "123456";  // 👉 Thay bằng pass mong muốn
-const ADMIN_TOKEN = "admin-secret-token"; // simple static token
+const ADMIN_USER = process.env.ADMIN_USER || "admin";
+const ADMIN_PASS = process.env.ADMIN_PASS || "123456";
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "admin-secret-token";
+
 
 /**
  * ✅ Admin Login (hardcoded credentials)

@@ -27,6 +27,8 @@ export default function AdminPanel() {
       if (data.success) {
         setIsLoggedIn(true);
         setToken(data.token);
+
+        // ✅ load toàn bộ data sau khi login
         fetchDashboard(data.token);
         fetchTickets(data.token);
         fetchServiceUsage(data.token);
@@ -39,6 +41,7 @@ export default function AdminPanel() {
     }
   };
 
+  // ✅ Dashboard stats
   const fetchDashboard = async (authToken = token) => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/dashboard`, {
@@ -51,6 +54,7 @@ export default function AdminPanel() {
     }
   };
 
+  // ✅ Ticket list
   const fetchTickets = async (authToken = token) => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/tickets`, {
@@ -63,6 +67,7 @@ export default function AdminPanel() {
     }
   };
 
+  // ✅ Service usage list
   const fetchServiceUsage = async (authToken = token) => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/service-usage`, {
@@ -75,6 +80,7 @@ export default function AdminPanel() {
     }
   };
 
+  // ✅ Delete ticket
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this ticket?")) return;
     try {
@@ -92,6 +98,7 @@ export default function AdminPanel() {
     }
   };
 
+  // ✅ Export CSV
   const downloadExport = (type) => {
     const url =
       type === "all"
@@ -100,7 +107,7 @@ export default function AdminPanel() {
     window.open(url, "_blank");
   };
 
-  // ✅ If not logged in
+  // ✅ LOGIN FORM
   if (!isLoggedIn) {
     return (
       <div className="container" style={{ marginTop: "100px" }}>
@@ -174,7 +181,7 @@ export default function AdminPanel() {
     </div>
   );
 
-  // ✅ Ticket view
+  // ✅ Ticket list view
   const TicketView = () => (
     <>
       <div className="d-flex justify-content-between align-items-center mb-4">

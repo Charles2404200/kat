@@ -76,7 +76,6 @@ router.post("/service", async (req, res) => {
   try {
     const { ticketId, hash, serviceType } = req.body;
 
-    // Only allow predefined service types
     if (!["food", "drink", "store"].includes(serviceType)) {
       return res.status(400).json({ success: false, message: "❌ Invalid service type!" });
     }
@@ -92,16 +91,18 @@ router.post("/service", async (req, res) => {
       return res.status(403).json({ success: false, message: "❌ QR tampered or invalid!" });
     }
 
-    // ✅ Ensure user checked in at the gate first
+    // ✅ Must gate check-in first
     if (!ticket.checkedIn) {
-      return res.status(409).json({
-        success: false,
-        message: "⚠️ Must check-in at GATE first before redeeming services!"
-      });
+      return res.status(409).json({ success: false, message: "⚠️ Must check-in at gate first!" });
     }
 
-    // ✅ Check if service already redeemed
-    if (ticket.servicesUsed && ticket.servicesUsed[serviceType]) {
+    // ✅ Always init servicesUsed if missing
+    if (!ticket.servicesUsed) {
+      ticket.servicesUsed = { food: false, drink: false, store: false };
+    }
+
+    // ✅ Prevent double redeem
+    if (ticket.servicesUsed[serviceType]) {
       return res.status(409).json({
         success: false,
         message: `⚠️ ${serviceType.toUpperCase()} service already redeemed!`
@@ -109,9 +110,13 @@ router.post("/service", async (req, res) => {
     }
 
     // ✅ Mark service as redeemed
-    if (!ticket.servicesUsed) ticket.servicesUsed = {};
     ticket.servicesUsed[serviceType] = true;
+
+    // ✅ FORCE mongoose to detect nested object change
+    ticket.markModified("servicesUsed");
     await ticket.save();
+
+    console.log("✅ Saved servicesUsed:", ticket.servicesUsed);
 
     return res.json({
       success: true,
@@ -128,5 +133,6 @@ router.post("/service", async (req, res) => {
     res.status(500).json({ success: false, message: "Server error during service validation" });
   }
 });
+
 
 export default router;
