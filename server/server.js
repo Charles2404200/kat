@@ -5,6 +5,7 @@ import mongoose from "mongoose";
 import path from "path";
 import { fileURLToPath } from "url";
 
+// ✅ Import API routes
 import ticketRoutes from "./routes/ticketRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import checkinRoutes from "./routes/checkinRoutes.js";
@@ -14,13 +15,11 @@ import activityLogRoutes from "./routes/activityLogRoutes.js";
 dotenv.config();
 const app = express();
 
-// ✅ Kết nối MongoDB Atlas
-mongoose
-  .connect(process.env.MONGO_URI)
+// ✅ Connect MongoDB
+mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("✅ Connected to MongoDB"))
-  .catch((err) => console.error("❌ MongoDB connection error:", err));
+  .catch(err => console.error("❌ MongoDB connection error:", err));
 
-// ✅ Mở full CORS để tránh lỗi frontend gọi API
 app.use(cors({ origin: "*" }));
 app.use(express.json());
 
@@ -31,17 +30,13 @@ app.use("/api/checkin", checkinRoutes);
 app.use("/api/service-redeem", serviceRedeemRoutes);
 app.use("/api/admin", activityLogRoutes);
 
-// ✅ Serve frontend Vite build
+// ✅ Serve FE build
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-// ✅ Vì đang chạy trong folder server/, dist nằm ngoài 1 cấp
 const distPath = path.join(__dirname, "../dist");
-app.use(express.static(distPath));
 
-// ✅ SPA fallback → React Router
-// Express v5 không chấp nhận `*`, nên dùng middleware fallback
-app.use((req, res) => {
+app.use(express.static(distPath));
+app.get("*", (req, res) => {
   res.sendFile(path.join(distPath, "index.html"));
 });
 
