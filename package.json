@@ -1,13 +1,13 @@
 {
   "name": "kat",
+  "version": "1.0.0",
   "private": true,
-  "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "lint": "eslint .",
-    "preview": "vite preview"
+    "dev": "vite",                // dùng khi dev local
+    "build": "vite build",        // build frontend
+    "postinstall": "npm run build", // Railway sẽ build frontend sau khi cài deps
+    "start": "node server.js"     // chạy backend Express, serve dist
   },
   "dependencies": {
     "bootstrap": "^5.3.7",
@@ -34,5 +34,8 @@
     "globals": "^16.3.0",
     "tailwindcss": "^4.1.11",
     "vite": "^7.0.4"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   }
 }
