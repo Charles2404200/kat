@@ -1,10 +1,10 @@
 {
-  "name": "kat",
+  "name": "kat-fullstack",
   "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite", 
     "build": "vite build",
     "postinstall": "npm run build",
     "start": "node server/server.js"
@@ -16,7 +16,9 @@
     "dotenv": "^17.2.0",
     "express": "^5.1.0",
     "html5-qrcode": "^2.3.8",
+    "json2csv": "^6.0.0-alpha.2",
     "mongoose": "^8.16.4",
+    "nodemailer": "^7.0.5",
     "qrcode": "^1.5.4",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
@@ -32,6 +34,7 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^16.3.0",
+    "nodemon": "^3.1.0",
     "tailwindcss": "^4.1.11",
     "vite": "^7.0.4"
   },
