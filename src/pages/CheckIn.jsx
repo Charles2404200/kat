@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import Navbar from "../components/Navbar";
-import { Html5QrcodeScanner } from "html5-qrcode";
 
 const API_BASE = "https://kat-production-e428.up.railway.app";
 
@@ -31,7 +30,6 @@ export default function CheckIn() {
         ticketInfo: data.ticketInfo || null,
       });
 
-      // ✅ Save ticketId for manual confirm later
       if (data.success && data.ticketInfo?.id) {
         setTicketId(data.ticketInfo.id);
       }
@@ -45,7 +43,6 @@ export default function CheckIn() {
     }
   };
 
-  // ✅ Confirm Check-In after scan
   const confirmCheckIn = async () => {
     if (!ticketId) return;
     try {
@@ -58,7 +55,7 @@ export default function CheckIn() {
       const data = await res.json();
       if (data.success) {
         alert("✅ Ticket Checked-In Successfully!");
-        window.location.reload(); // reset for next scan
+        window.location.reload(); 
       } else {
         alert(data.message);
       }
@@ -68,13 +65,12 @@ export default function CheckIn() {
     }
   };
 
-  // ✅ Handle scanned QR
   const handleDecodedText = async (decodedText) => {
     console.log("✅ QR Scanned/Decoded:", decodedText);
     try {
       const payload = JSON.parse(decodedText);
       await validateTicket(payload);
-      setScanning(false); // stop scanning once QR is validated
+      setScanning(false);
     } catch (err) {
       console.error("Invalid QR Data:", err);
       setValidationResult({
@@ -85,25 +81,34 @@ export default function CheckIn() {
     }
   };
 
-  // ✅ Initialize QR scanner
+  // ✅ Lazy load html5-qrcode only on browser
   useEffect(() => {
     if (!scanning) return;
 
-    const scanner = new Html5QrcodeScanner(
-      "qr-reader",
-      { fps: 10, qrbox: { width: 250, height: 250 } },
-      false
-    );
+    let scanner;
 
-    scanner.render(
-      (decodedText) => handleDecodedText(decodedText),
-      (error) => {
-        // ignore scan errors
+    async function startScanner() {
+      if (typeof window !== "undefined") {
+        const mod = await import("html5-qrcode"); // ✅ dynamic import
+        const Html5QrcodeScanner = mod.Html5QrcodeScanner;
+
+        scanner = new Html5QrcodeScanner(
+          "qr-reader",
+          { fps: 10, qrbox: { width: 250, height: 250 } },
+          false
+        );
+
+        scanner.render(
+          (decodedText) => handleDecodedText(decodedText),
+          () => {}
+        );
       }
-    );
+    }
+
+    startScanner();
 
     return () => {
-      scanner.clear().catch((err) => console.error("Clear scanner error:", err));
+      if (scanner) scanner.clear().catch((err) => console.error("Clear scanner error:", err));
     };
   }, [scanning]);
 
@@ -119,12 +124,10 @@ export default function CheckIn() {
                 <h2 className="fw-bold mb-4">🚪 Gate Check-In</h2>
                 <p className="text-muted">Scan the QR code on the ticket</p>
 
-                {/* ✅ QR Scanner */}
                 {scanning && (
                   <div id="qr-reader" style={{ width: "100%", maxWidth: "400px", margin: "0 auto" }}></div>
                 )}
 
-                {/* ✅ Show validation result */}
                 {validationResult && (
                   <div
                     className={`card mt-4 border-${
@@ -160,7 +163,6 @@ export default function CheckIn() {
                   </div>
                 )}
 
-                {/* ✅ Show Confirm Button if valid & NOT already checked-in */}
                 {validationResult?.success && !validationResult.ticketInfo?.checkedIn && (
                   <div className="mt-4">
                     <button className="btn btn-primary btn-lg" onClick={confirmCheckIn}>
@@ -169,7 +171,6 @@ export default function CheckIn() {
                   </div>
                 )}
 
-                {/* ✅ Buttons after scan */}
                 {!scanning && (
                   <div className="mt-4">
                     <button className="btn btn-secondary" onClick={() => window.location.reload()}>
