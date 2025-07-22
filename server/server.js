@@ -35,8 +35,8 @@ app.use("/api/admin", activityLogRoutes);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// trỏ tới dist sau khi vite build
-const distPath = path.join(__dirname, "dist");
+// ✅ Vì đang ở server/, nên cần ../dist
+const distPath = path.join(__dirname, "../dist");
 app.use(express.static(distPath));
 
 // ✅ SPA fallback → React Router

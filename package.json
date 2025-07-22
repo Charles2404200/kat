@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "postinstall": "npm run build",
-    "start": "node server.js"
+    "start": "node server/server.js"
   },
   "dependencies": {
     "bootstrap": "^5.3.7",
