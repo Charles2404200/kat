@@ -11,10 +11,11 @@ export default function BuyTicket() {
   const [paymentMethod, setPaymentMethod] = useState("momo");
   const [ticketId, setTicketId] = useState(null);
   const [paymentQR, setPaymentQR] = useState(null);
-  const [paymentLink, setPaymentLink] = useState(null);
+
   const [loading, setLoading] = useState(false);
 
   const [notification, setNotification] = useState(null);
+  const [paymentCompleted, setPaymentCompleted] = useState(false);
 
   const prices = {
     standard: 500000,
@@ -36,16 +37,20 @@ export default function BuyTicket() {
         if (data.success && data.status === "paid") {
           clearInterval(interval);
 
+          // ✅ Show success card instead of just redirecting silently
+          setPaymentCompleted(true);
+
           setNotification({
             type: "success",
-            title: "✅ Payment Successful!",
-            message: "Your payment has been confirmed. Redirecting to home...",
+            title: "✅ Payment Completed!",
+            message:
+              "Your payment has been confirmed. Your unique ticket QR has been sent to your email. Thank you!",
           });
 
-          // Redirect after 2 seconds
+          // ✅ After showing message for 3 seconds, redirect
           setTimeout(() => {
             window.location.href = "/";
-          }, 2000);
+          }, 3000);
         }
       } catch (err) {
         console.error("Polling error:", err);
@@ -103,7 +108,6 @@ export default function BuyTicket() {
         });
         setTicketId(data.ticketId);
         setPaymentQR(data.paymentQRUrl);
-        setPaymentLink(data.paymentLink);
         return;
       }
 
@@ -115,7 +119,6 @@ export default function BuyTicket() {
         });
         setTicketId(data.ticketId);
         setPaymentQR(data.paymentQRUrl);
-        setPaymentLink(data.paymentLink);
       } else {
         setNotification({
           type: "danger",
@@ -168,7 +171,18 @@ export default function BuyTicket() {
                   </div>
                 )}
 
-                {!paymentQR && (
+                {/* ✅ If payment completed, just show success message */}
+                {paymentCompleted && (
+                  <div className="text-center my-4">
+                    <h4>🎉 Payment confirmed!</h4>
+                    <p className="text-muted">
+                      Redirecting you to the home page in a few seconds...
+                    </p>
+                  </div>
+                )}
+
+                {/* ✅ Show form only if no payment yet */}
+                {!paymentQR && !paymentCompleted && (
                   <form onSubmit={handleBuy}>
                     <div className="mb-3">
                       <label className="form-label fw-bold">Your Email</label>
@@ -234,7 +248,8 @@ export default function BuyTicket() {
                   </form>
                 )}
 
-                {paymentQR && (
+                {/* ✅ Show payment QR only if waiting for payment */}
+                {paymentQR && !paymentCompleted && (
                   <div className="text-center">
                     <h4 className="fw-bold mb-3">
                       💳 Scan QR with{" "}
@@ -249,13 +264,7 @@ export default function BuyTicket() {
                       Scan this QR using your <strong>{paymentMethod.toUpperCase()}</strong> app.
                     </p>
 
-                    {paymentLink && (
-                      <div className="mt-3">
-                        <a href={paymentLink} className="btn btn-primary">
-                          🔗 Open Payment Page
-                        </a>
-                      </div>
-                    )}
+                    {/* ❌ Removed fallback link for desktop */}
 
                     <div className="mt-4">
                       <button
@@ -263,7 +272,6 @@ export default function BuyTicket() {
                         onClick={() => {
                           setTicketId(null);
                           setPaymentQR(null);
-                          setPaymentLink(null);
                           setNotification(null);
                         }}
                       >
