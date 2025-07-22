@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",                // dùng khi dev local
-    "build": "vite build",        // build frontend
-    "postinstall": "npm run build", // Railway sẽ build frontend sau khi cài deps
-    "start": "node server.js"     // chạy backend Express, serve dist
+    "dev": "vite",
+    "build": "vite build",
+    "postinstall": "npm run build",
+    "start": "node server.js"
   },
   "dependencies": {
     "bootstrap": "^5.3.7",
