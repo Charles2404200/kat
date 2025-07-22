@@ -14,13 +14,13 @@ import activityLogRoutes from "./routes/activityLogRoutes.js";
 dotenv.config();
 const app = express();
 
-// ✅ Kết nối MongoDB
+// ✅ Kết nối MongoDB Atlas
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("✅ Connected to MongoDB"))
   .catch((err) => console.error("❌ MongoDB connection error:", err));
 
-// ✅ Mở full CORS
+// ✅ Mở full CORS để tránh lỗi frontend gọi API
 app.use(cors({ origin: "*" }));
 app.use(express.json());
 
@@ -35,12 +35,13 @@ app.use("/api/admin", activityLogRoutes);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ✅ Vì đang ở server/, nên cần ../dist
+// ✅ Vì đang chạy trong folder server/, dist nằm ngoài 1 cấp
 const distPath = path.join(__dirname, "../dist");
 app.use(express.static(distPath));
 
 // ✅ SPA fallback → React Router
-app.get("*", (req, res) => {
+// Express v5 không chấp nhận `*`, nên dùng middleware fallback
+app.use((req, res) => {
   res.sendFile(path.join(distPath, "index.html"));
 });
 
