@@ -18,7 +18,7 @@ function generateTicketHash(ticketId, email) {
 }
 
 /**
- * 1️⃣ Create pending ticket & return Payment QR Code
+ * ✅ Create pending ticket & return Payment QR Code
  */
 router.post("/create", async (req, res) => {
   const { buyerEmail, ticketType, quantity, paymentMethod } = req.body;
@@ -78,7 +78,7 @@ router.post("/create", async (req, res) => {
 });
 
 /**
- * 2️⃣ Simulate scanning payment QR → Confirm payment → Issue UNIQUE Ticket QR
+ * ✅ Confirm payment → mark as paid → issue unique ticket QR
  */
 router.post("/confirm-payment", async (req, res) => {
   try {
@@ -111,7 +111,7 @@ router.post("/confirm-payment", async (req, res) => {
 
     // ✅ Save in DB
     ticket.qrCodeUrl = eventQRUrl;
-    ticket.ticketHash = secureHash; // add to model for future check-in verification
+    ticket.ticketHash = secureHash;
     await ticket.save();
 
     // ✅ Send email with UNIQUE Ticket QR
@@ -129,7 +129,24 @@ router.post("/confirm-payment", async (req, res) => {
 });
 
 /**
- * Send email with unique ticket QR
+ * ✅ Check ticket status (for polling)
+ */
+router.get("/status/:ticketId", async (req, res) => {
+  try {
+    const { ticketId } = req.params;
+    const ticket = await Ticket.findById(ticketId).select("status");
+
+    if (!ticket) return res.status(404).json({ success: false, error: "Ticket not found" });
+
+    res.json({ success: true, status: ticket.status });
+  } catch (err) {
+    console.error("❌ Check Status Error:", err);
+    res.status(500).json({ success: false, error: "Server error" });
+  }
+});
+
+/**
+ * ✅ Send email with unique ticket QR
  */
 async function sendTicketEmail(email, ticket) {
   const transporter = nodemailer.createTransport({
@@ -160,7 +177,7 @@ async function sendTicketEmail(email, ticket) {
         filename: "ticket-qr.png",
         content: base64Image,
         encoding: "base64",
-        cid: "eventqr", // matches the cid in <img src="cid:eventqr">
+        cid: "eventqr",
       },
     ],
   });

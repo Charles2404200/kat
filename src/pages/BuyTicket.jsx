@@ -1,8 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Navbar from "../components/Navbar";
 
 const API_BASE = "https://kat-production-e428.up.railway.app";
-
 
 export default function BuyTicket() {
   const [email, setEmail] = useState("");
@@ -15,7 +14,7 @@ export default function BuyTicket() {
   const [paymentLink, setPaymentLink] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const [notification, setNotification] = useState(null); // ✅ Show messages in card
+  const [notification, setNotification] = useState(null);
 
   const prices = {
     standard: 500000,
@@ -25,7 +24,38 @@ export default function BuyTicket() {
 
   const totalPrice = prices[ticketType] * quantity;
 
-  // ✅ Step 1: Create pending ticket & get payment QR
+  // ✅ Poll ticket status after creating ticket
+  useEffect(() => {
+    if (!ticketId) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/tickets/status/${ticketId}`);
+        const data = await res.json();
+
+        if (data.success && data.status === "paid") {
+          clearInterval(interval);
+
+          setNotification({
+            type: "success",
+            title: "✅ Payment Successful!",
+            message: "Your payment has been confirmed. Redirecting to home...",
+          });
+
+          // Redirect after 2 seconds
+          setTimeout(() => {
+            window.location.href = "/";
+          }, 2000);
+        }
+      } catch (err) {
+        console.error("Polling error:", err);
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [ticketId]);
+
+  // ✅ Create pending ticket & get payment QR
   const handleBuy = async (e) => {
     e.preventDefault();
 
@@ -54,7 +84,6 @@ export default function BuyTicket() {
       const data = await res.json();
       setLoading(false);
 
-      // ✅ Already PAID → BLOCK
       if (res.status === 403) {
         setNotification({
           type: "danger",
@@ -66,7 +95,6 @@ export default function BuyTicket() {
         return;
       }
 
-      // ✅ Pending → return same QR
       if (res.status === 409) {
         setNotification({
           type: "warning",
@@ -79,7 +107,6 @@ export default function BuyTicket() {
         return;
       }
 
-      // ✅ Normal success → create new pending ticket
       if (data.success) {
         setNotification({
           type: "success",
@@ -118,7 +145,6 @@ export default function BuyTicket() {
               <div className="card-body p-4">
                 <h2 className="fw-bold text-center mb-4">🎟 Get Your Ticket</h2>
 
-                {/* ✅ Notification Card (dynamic style) */}
                 {notification && (
                   <div className={`card border-${notification.type} mb-3`}>
                     <div
@@ -142,10 +168,8 @@ export default function BuyTicket() {
                   </div>
                 )}
 
-                {/* STEP 1: Show ticket form if no QR yet */}
                 {!paymentQR && (
                   <form onSubmit={handleBuy}>
-                    {/* Email */}
                     <div className="mb-3">
                       <label className="form-label fw-bold">Your Email</label>
                       <input
@@ -158,7 +182,6 @@ export default function BuyTicket() {
                       />
                     </div>
 
-                    {/* Ticket Type */}
                     <div className="mb-3">
                       <label className="form-label fw-bold">Choose Ticket Type</label>
                       <select
@@ -172,7 +195,6 @@ export default function BuyTicket() {
                       </select>
                     </div>
 
-                    {/* Quantity */}
                     <div className="mb-3">
                       <label className="form-label fw-bold">Number of Tickets</label>
                       <input
@@ -185,7 +207,6 @@ export default function BuyTicket() {
                       />
                     </div>
 
-                    {/* ✅ Payment Method */}
                     <div className="mb-3">
                       <label className="form-label fw-bold">Select Payment Method</label>
                       <select
@@ -198,7 +219,6 @@ export default function BuyTicket() {
                       </select>
                     </div>
 
-                    {/* Total */}
                     <div className="mb-4 text-center">
                       <h4 className="fw-bold">
                         Total:{" "}
@@ -208,14 +228,12 @@ export default function BuyTicket() {
                       </h4>
                     </div>
 
-                    {/* Confirm & Pay */}
                     <button type="submit" className="btn btn-warning w-100 fw-bold" disabled={loading}>
                       {loading ? "Processing..." : "✅ Confirm & Show Payment QR"}
                     </button>
                   </form>
                 )}
 
-                {/* STEP 2: Show QR + Fallback Link */}
                 {paymentQR && (
                   <div className="text-center">
                     <h4 className="fw-bold mb-3">
@@ -231,7 +249,6 @@ export default function BuyTicket() {
                       Scan this QR using your <strong>{paymentMethod.toUpperCase()}</strong> app.
                     </p>
 
-                    {/* fallback link for desktop */}
                     {paymentLink && (
                       <div className="mt-3">
                         <a href={paymentLink} className="btn btn-primary">
@@ -240,7 +257,6 @@ export default function BuyTicket() {
                       </div>
                     )}
 
-                    {/* Cancel payment & go back */}
                     <div className="mt-4">
                       <button
                         className="btn btn-outline-secondary"
@@ -257,7 +273,6 @@ export default function BuyTicket() {
                   </div>
                 )}
 
-                {/* Back to home */}
                 <div className="text-center mt-3">
                   <a href="/" className="text-muted">
                     ← Back to Home
