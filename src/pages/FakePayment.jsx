@@ -2,7 +2,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 
 // ✅ Lấy API_BASE từ biến môi trường
-const API_BASE = "https://kat-j9ym.onrender.com";
+const API_BASE = "https://kat-production-e428.up.railway.app";
 
 
 export default function FakePayment() {

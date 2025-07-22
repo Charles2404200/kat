@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Navbar from "../components/Navbar";
 
-const API_BASE = "https://kat-j9ym.onrender.com";
+const API_BASE = "https://kat-production-e428.up.railway.app";
 
 
 export default function BuyTicket() {
