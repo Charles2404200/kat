@@ -7,20 +7,18 @@ import crypto from "crypto";
 
 const router = express.Router();
 
+// domain deploy trên Railway (dùng fake-payment để test)
 const RAILWAY_URL = "https://kat-production-e428.up.railway.app";
+// thời gian timeout của vé pending (mặc định 15 phút nếu ko set env)
 const EXPIRATION_MINUTES = parseInt(process.env.PENDING_TICKET_EXPIRE_MINUTES || "15", 10);
 
-/**
- * ✅ Generate secure hash
- */
+// helper: gen hash bảo mật cho vé (QR payload)
 function generateTicketHash(ticketId, email) {
-  const secretKey = process.env.QR_SECRET || "super-secret-key";
+  const secretKey = process.env.QR_SECRET || "super-secret-key"; // fallback nếu chưa có env
   return crypto.createHmac("sha256", secretKey).update(ticketId + email).digest("hex");
 }
 
-/**
- * ✅ Helper: sum quantity for given status
- */
+// helper: tính tổng quantity đã bán theo ticketType + status
 async function getSoldQuantity(ticketType, status) {
   const agg = await Ticket.aggregate([
     { $match: { ticketType, status } },
@@ -30,7 +28,8 @@ async function getSoldQuantity(ticketType, status) {
 }
 
 /**
- * ✅ API FE fetch stock & remaining (cộng dồn quantity)
+ * API get available stock – FE gọi để hiển thị vé còn lại
+ * sold + pending đều tính để block oversell
  */
 router.get("/available-stock", async (req, res) => {
   try {
@@ -38,9 +37,9 @@ router.get("/available-stock", async (req, res) => {
 
     const summary = await Promise.all(
       stocks.map(async (s) => {
-        const sold = await getSoldQuantity(s.ticketType, "paid");
-        const pending = await getSoldQuantity(s.ticketType, "pending");
-        const remaining = s.total - (sold + pending);
+        const sold = await getSoldQuantity(s.ticketType, "paid");     // vé đã thanh toán
+        const pending = await getSoldQuantity(s.ticketType, "pending"); // vé đang pending
+        const remaining = s.total - (sold + pending); // số vé còn lại thật sự
 
         return {
           ticketType: s.ticketType,
@@ -59,20 +58,20 @@ router.get("/available-stock", async (req, res) => {
 });
 
 /**
- * ✅ Create pending ticket (block nếu vượt stock còn lại)
+ * API create vé pending – block nếu quá số lượng stock
  */
 router.post("/create", async (req, res) => {
   try {
     const { buyerEmail, ticketType, quantity, paymentMethod } = req.body;
-    const normalizedEmail = buyerEmail.trim().toLowerCase();
+    const normalizedEmail = buyerEmail.trim().toLowerCase(); // chuẩn hóa email
 
-    // 1️⃣ Kiểm tra loại vé có tồn tại không
+    // step 1: check loại vé có tồn tại không
     const stock = await TicketStock.findOne({ ticketType });
     if (!stock) {
       return res.status(400).json({ error: "❌ Ticket type not found" });
     }
 
-    // 2️⃣ Tính sold + pending (cộng dồn quantity)
+    // step 2: tính số vé đã bán + pending -> tính remaining
     const sold = await getSoldQuantity(ticketType, "paid");
     const pending = await getSoldQuantity(ticketType, "pending");
     const remaining = stock.total - (sold + pending);
@@ -83,7 +82,7 @@ router.post("/create", async (req, res) => {
       });
     }
 
-    // 3️⃣ Nếu đã có vé paid -> chặn
+    // step 3: check user đã có vé paid chưa (1 người chỉ mua 1 lần)
     const existingPaid = await Ticket.findOne({ buyerEmail: normalizedEmail, status: "paid" });
     if (existingPaid) {
       return res.status(403).json({
@@ -94,7 +93,7 @@ router.post("/create", async (req, res) => {
       });
     }
 
-    // 4️⃣ Nếu có pending -> trả lại QR cũ
+    // step 4: nếu đã có pending thì trả lại QR cũ (tránh spam create)
     const existingPending = await Ticket.findOne({ buyerEmail: normalizedEmail, status: "pending" });
     if (existingPending) {
       const paymentLink = `${RAILWAY_URL}/fake-payment?ticketId=${existingPending._id}`;
@@ -114,7 +113,7 @@ router.post("/create", async (req, res) => {
       });
     }
 
-    // 5️⃣ Tạo vé pending mới
+    // step 5: tạo vé pending mới
     const totalPrice = stock.price * quantity;
 
     const ticket = await Ticket.create({
@@ -147,7 +146,7 @@ router.post("/create", async (req, res) => {
 });
 
 /**
- * ✅ Confirm payment -> chuyển sang paid
+ * API confirm payment – đổi status pending -> paid + gen QR vé
  */
 router.post("/confirm-payment", async (req, res) => {
   try {
@@ -161,6 +160,7 @@ router.post("/confirm-payment", async (req, res) => {
 
     if (!ticket) return res.status(400).json({ error: "Ticket not found or already paid/expired" });
 
+    // gen hash bảo mật cho QR event
     const secureHash = generateTicketHash(ticket._id.toString(), ticket.buyerEmail);
 
     const eventQRPayload = {
@@ -172,6 +172,7 @@ router.post("/confirm-payment", async (req, res) => {
       hash: secureHash
     };
 
+    // stringify payload và convert thành QR base64
     const eventQRString = JSON.stringify(eventQRPayload);
     const eventQRUrl = await QRCode.toDataURL(eventQRString);
 
@@ -179,6 +180,7 @@ router.post("/confirm-payment", async (req, res) => {
     ticket.ticketHash = secureHash;
     await ticket.save();
 
+    // send mail chứa vé QR cho user
     await sendTicketEmail(ticket.buyerEmail, ticket);
 
     res.json({
@@ -193,7 +195,7 @@ router.post("/confirm-payment", async (req, res) => {
 });
 
 /**
- * ✅ Check ticket status
+ * API check status vé (pending/paid/expired)
  */
 router.get("/status/:ticketId", async (req, res) => {
   try {
@@ -212,7 +214,7 @@ router.get("/status/:ticketId", async (req, res) => {
 });
 
 /**
- * ✅ Send ticket email
+ * Helper gửi mail chứa vé QR cho user (sau khi confirm payment)
  */
 async function sendTicketEmail(email, ticket) {
   const transporter = nodemailer.createTransport({
@@ -223,7 +225,7 @@ async function sendTicketEmail(email, ticket) {
     }
   });
 
-  const base64Image = ticket.qrCodeUrl.split(";base64,").pop();
+  const base64Image = ticket.qrCodeUrl.split(";base64,").pop(); // lấy base64 QR từ url
 
   await transporter.sendMail({
     from: '"KAT-2 Event" <no-reply@kat2.com>',
@@ -242,7 +244,7 @@ async function sendTicketEmail(email, ticket) {
         filename: "ticket-qr.png",
         content: base64Image,
         encoding: "base64",
-        cid: "eventqr"
+        cid: "eventqr" // dùng cid để inline image
       }
     ]
   });

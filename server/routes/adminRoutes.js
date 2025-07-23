@@ -10,13 +10,15 @@ import path from "path";
 dotenv.config();
 const router = express.Router();
 
+// mấy info admin, fallback nếu chưa có .env thì dùng default
 const ADMIN_USER = process.env.ADMIN_USER || "admin";
 const ADMIN_PASS = process.env.ADMIN_PASS || "123456";
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "admin-secret-token";
 
+// file log local (để ghi activity)
 const LOG_FILE = path.join(process.cwd(), "logs.json");
 
-// ✅ Helper log
+// helper: ghi log vào file json, tối đa 500 record
 export function appendLog(action, email, staff = "System") {
   let logs = [];
   if (fs.existsSync(LOG_FILE)) {
@@ -37,12 +39,13 @@ export function appendLog(action, email, staff = "System") {
     staff
   });
 
+  // giữ tối đa 500 log cho nhẹ
   if (logs.length > 500) logs = logs.slice(0, 500);
   fs.writeFileSync(LOG_FILE, JSON.stringify(logs, null, 2));
 }
 
 /**
- * ✅ Admin login
+ * Admin login – check user/pass đơn giản, trả token cứng
  */
 router.post("/login", (req, res) => {
   const { username, password } = req.body;
@@ -53,16 +56,16 @@ router.post("/login", (req, res) => {
 });
 
 /**
- * ✅ Get all tickets
+ * Lấy toàn bộ danh sách vé (cần token admin)
  */
 router.get("/tickets", async (req, res) => {
   if (req.headers.token !== ADMIN_TOKEN) return res.status(403).json({ error: "Unauthorized" });
-  const tickets = await Ticket.find().sort({ createdAt: -1 });
+  const tickets = await Ticket.find().sort({ createdAt: -1 }); // sort mới nhất trước
   res.json({ success: true, tickets });
 });
 
 /**
- * ✅ Delete ticket
+ * Xoá vé theo id – nếu có thì log lại
  */
 router.delete("/ticket/:id", async (req, res) => {
   if (req.headers.token !== ADMIN_TOKEN) return res.status(403).json({ error: "Unauthorized" });
@@ -74,7 +77,7 @@ router.delete("/ticket/:id", async (req, res) => {
 });
 
 /**
- * ✅ Dashboard stats
+ * Dashboard stats – tổng vé, đã checkin, chưa checkin + thống kê dịch vụ
  */
 router.get("/dashboard", async (req, res) => {
   if (req.headers.token !== ADMIN_TOKEN) return res.status(403).json({ error: "Unauthorized" });
@@ -83,6 +86,7 @@ router.get("/dashboard", async (req, res) => {
   const checkedInTickets = await Ticket.countDocuments({ checkedIn: true });
   const notCheckedInTickets = totalTickets - checkedInTickets;
 
+  // thống kê dịch vụ đã dùng
   const serviceStats = {
     food: await Ticket.countDocuments({ "servicesUsed.food": true }),
     drink: await Ticket.countDocuments({ "servicesUsed.drink": true }),
@@ -101,7 +105,7 @@ router.get("/dashboard", async (req, res) => {
 });
 
 /**
- * ✅ Service usage list
+ * Lấy danh sách vé đã dùng dịch vụ (food/drink/store)
  */
 router.get("/service-usage", async (req, res) => {
   if (req.headers.token !== ADMIN_TOKEN) return res.status(403).json({ error: "Unauthorized" });
@@ -118,7 +122,7 @@ router.get("/service-usage", async (req, res) => {
 });
 
 /**
- * ✅ Export tickets as CSV
+ * Export vé thành file CSV (email, loại vé, status, dịch vụ...)
  */
 router.get("/export", async (req, res) => {
   if (req.headers.token !== ADMIN_TOKEN) return res.status(403).json({ error: "Unauthorized" });
@@ -156,7 +160,7 @@ router.get("/export", async (req, res) => {
 });
 
 /**
- * ✅ Export service usage CSV
+ * Export danh sách vé có sử dụng dịch vụ – CSV
  */
 router.get("/export-services", async (req, res) => {
   if (req.headers.token !== ADMIN_TOKEN) return res.status(403).json({ error: "Unauthorized" });
@@ -189,7 +193,7 @@ router.get("/export-services", async (req, res) => {
 });
 
 /**
- * ✅ Get Logs
+ * Lấy logs (ghi local) – max 500 log
  */
 router.get("/logs", async (req, res) => {
   if (req.headers.token !== ADMIN_TOKEN) return res.status(403).json({ success: false, error: "Unauthorized" });
@@ -200,7 +204,7 @@ router.get("/logs", async (req, res) => {
 });
 
 /**
- * ✅ Ticket stock summary (tính sold bằng $sum quantity)
+ * Tóm tắt stock vé – tính sold bằng $sum quantity
  */
 router.get("/ticket-stock-summary", async (req, res) => {
   if (req.headers.token !== ADMIN_TOKEN) return res.status(403).json({ success: false, error: "Unauthorized" });
@@ -210,7 +214,7 @@ router.get("/ticket-stock-summary", async (req, res) => {
 
     const summary = await Promise.all(
       stocks.map(async (s) => {
-        // ✅ tổng vé đã bán (sum quantity)
+        // tổng vé đã bán (sum quantity)
         const agg = await Ticket.aggregate([
           { $match: { ticketType: s.ticketType, status: "paid" } },
           { $group: { _id: null, totalSold: { $sum: "$quantity" } } }
@@ -236,7 +240,7 @@ router.get("/ticket-stock-summary", async (req, res) => {
 });
 
 /**
- * ✅ Admin update max stock (validate $sum quantity)
+ * Admin update stock (validate tổng sold < newTotal)
  */
 router.post("/update-stock", async (req, res) => {
   if (req.headers.token !== ADMIN_TOKEN) return res.status(403).json({ success: false, error: "Unauthorized" });
@@ -250,7 +254,7 @@ router.post("/update-stock", async (req, res) => {
     const stock = await TicketStock.findOne({ ticketType });
     if (!stock) return res.status(404).json({ success: false, error: "Ticket type not found!" });
 
-    // ✅ tổng vé đã bán
+    // check xem đã bán bao nhiêu
     const agg = await Ticket.aggregate([
       { $match: { ticketType, status: "paid" } },
       { $group: { _id: null, totalSold: { $sum: "$quantity" } } }
@@ -286,7 +290,7 @@ router.post("/update-stock", async (req, res) => {
 });
 
 /**
- * ✅ Admin add new ticket type
+ * Admin add thêm loại vé mới
  */
 router.post("/add-stock", async (req, res) => {
   if (req.headers.token !== ADMIN_TOKEN) return res.status(403).json({ success: false, error: "Unauthorized" });

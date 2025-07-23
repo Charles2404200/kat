@@ -1,25 +1,30 @@
 import { useState } from "react";
 
+// base URL của API backend
 const API_BASE = "https://kat-production-e428.up.railway.app";
 
 export default function AdminPanel() {
+  // login state
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [token, setToken] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
+  // tab UI state
   const [activeTab, setActiveTab] = useState("dashboard");
+
+  // data từ backend
   const [tickets, setTickets] = useState([]);
   const [dashboardStats, setDashboardStats] = useState(null);
   const [serviceUsage, setServiceUsage] = useState([]);
   const [logs, setLogs] = useState([]);
 
-  const [stocks, setStocks] = useState([]); // ✅ stock summary từ backend
-  const [editingStock, setEditingStock] = useState(null);
-  const [newTotal, setNewTotal] = useState("");
-  const [newPrice, setNewPrice] = useState("");
+  const [stocks, setStocks] = useState([]); // stock summary (các loại vé)
+  const [editingStock, setEditingStock] = useState(null); // vé đang edit
+  const [newTotal, setNewTotal] = useState(""); // số lượng vé mới
+  const [newPrice, setNewPrice] = useState(""); // giá vé mới (optional)
 
-  // ✅ Admin login
+  // ===== LOGIN ADMIN =====
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
@@ -31,10 +36,11 @@ export default function AdminPanel() {
 
       const data = await res.json();
       if (data.success) {
+        // login ok
         setIsLoggedIn(true);
         setToken(data.token);
 
-        // ✅ Load tất cả sau khi login
+        // sau khi login => load dashboard, tickets, service usage, logs, stock
         fetchDashboard(data.token);
         fetchTickets(data.token);
         fetchServiceUsage(data.token);
@@ -49,7 +55,7 @@ export default function AdminPanel() {
     }
   };
 
-  // ✅ Dashboard stats
+  // ===== FETCH DASHBOARD =====
   const fetchDashboard = async (authToken = token) => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/dashboard`, {
@@ -62,7 +68,7 @@ export default function AdminPanel() {
     }
   };
 
-  // ✅ Ticket list
+  // ===== FETCH TICKET LIST =====
   const fetchTickets = async (authToken = token) => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/tickets`, {
@@ -75,7 +81,7 @@ export default function AdminPanel() {
     }
   };
 
-  // ✅ Service usage
+  // ===== FETCH SERVICE USAGE =====
   const fetchServiceUsage = async (authToken = token) => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/service-usage`, {
@@ -88,7 +94,7 @@ export default function AdminPanel() {
     }
   };
 
-  // ✅ Fetch logs
+  // ===== FETCH LOGS =====
   const fetchLogs = async (authToken = token) => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/logs`, {
@@ -101,7 +107,7 @@ export default function AdminPanel() {
     }
   };
 
-  // ✅ Fetch stock (summary)
+  // ===== FETCH STOCK SUMMARY =====
   const fetchStock = async (authToken = token) => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/ticket-stock-summary`, {
@@ -114,7 +120,7 @@ export default function AdminPanel() {
     }
   };
 
-  // ✅ Delete ticket
+  // ===== DELETE TICKET =====
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this ticket?")) return;
     try {
@@ -132,16 +138,16 @@ export default function AdminPanel() {
     }
   };
 
-  // ✅ Export CSV
+  // ===== EXPORT CSV =====
   const downloadExport = (type) => {
     const url =
       type === "all"
         ? `${API_BASE}/api/admin/export`
         : `${API_BASE}/api/admin/export-services`;
-    window.open(url, "_blank");
+    window.open(url, "_blank"); // mở CSV trong tab mới
   };
 
-  // ✅ Update stock
+  // ===== UPDATE STOCK =====
   const handleUpdateStock = async (ticketType) => {
     if (!newTotal) return alert("Please enter new total!");
     try {
@@ -164,7 +170,7 @@ export default function AdminPanel() {
         setEditingStock(null);
         setNewTotal("");
         setNewPrice("");
-        fetchStock();
+        fetchStock(); // reload stock summary
       } else {
         alert(`❌ ${data.error}`);
       }
@@ -173,7 +179,7 @@ export default function AdminPanel() {
     }
   };
 
-  // ✅ LOGIN FORM
+  // === LOGIN SCREEN ===
   if (!isLoggedIn) {
     return (
       <div className="container" style={{ marginTop: "100px" }}>
@@ -208,7 +214,7 @@ export default function AdminPanel() {
     );
   }
 
-  // ✅ Dashboard view
+  // ====== DASHBOARD VIEW ======
   const DashboardView = () => (
     <div className="mt-4">
       <h3>📊 Realtime Dashboard</h3>
@@ -216,24 +222,28 @@ export default function AdminPanel() {
         <p className="text-muted">Loading...</p>
       ) : (
         <div className="row text-center">
+          {/* total tickets */}
           <div className="col-md-3">
             <div className="card shadow-sm p-3">
               <h6>Total Tickets</h6>
               <h2>{dashboardStats.totalTickets}</h2>
             </div>
           </div>
+          {/* checked-in */}
           <div className="col-md-3">
             <div className="card shadow-sm p-3">
               <h6>✅ Checked-In</h6>
               <h2 className="text-success">{dashboardStats.checkedInTickets}</h2>
             </div>
           </div>
+          {/* not checked-in */}
           <div className="col-md-3">
             <div className="card shadow-sm p-3">
               <h6>⏳ Not Checked-In</h6>
               <h2 className="text-warning">{dashboardStats.notCheckedInTickets}</h2>
             </div>
           </div>
+          {/* service stats */}
           <div className="col-md-3">
             <div className="card shadow-sm p-3">
               <h6>🍔 Services Used</h6>
@@ -247,7 +257,7 @@ export default function AdminPanel() {
     </div>
   );
 
-  // ✅ Ticket list view
+  // ====== TICKET MANAGEMENT VIEW ======
   const TicketView = () => (
     <>
       <div className="d-flex justify-content-between align-items-center mb-4">
@@ -296,6 +306,7 @@ export default function AdminPanel() {
                     {t.qrCodeUrl ? <img src={t.qrCodeUrl} width="40" /> : "-"}
                   </td>
                   <td>
+                    {/* show icons nếu user dùng dịch vụ */}
                     {t.servicesUsed?.food && "🍔 "}
                     {t.servicesUsed?.drink && "🥤 "}
                     {t.servicesUsed?.store && "🛍 "}
@@ -317,7 +328,7 @@ export default function AdminPanel() {
     </>
   );
 
-  // ✅ Stock management view
+  // ====== STOCK MANAGEMENT VIEW ======
   const StockView = () => (
     <div className="mt-4">
       <h3>📦 Ticket Stock Management</h3>
@@ -398,7 +409,7 @@ export default function AdminPanel() {
     </div>
   );
 
-  // ✅ Service usage view
+  // ====== SERVICE USAGE VIEW ======
   const ServiceUsageView = () => (
     <>
       <div className="d-flex justify-content-between align-items-center mb-4">
@@ -445,7 +456,7 @@ export default function AdminPanel() {
     </>
   );
 
-  // ✅ Logs view
+  // ====== LOGS VIEW ======
   const LogsView = () => (
     <div className="mt-4">
       <h3>📜 Activity Logs</h3>
@@ -478,8 +489,10 @@ export default function AdminPanel() {
     </div>
   );
 
+  // main layout admin panel
   return (
     <div className="container" style={{ marginTop: "80px" }}>
+      {/* top menu tabs */}
       <div className="btn-group mb-4">
         <button
           className={`btn ${activeTab === "dashboard" ? "btn-primary" : "btn-outline-primary"}`}
@@ -528,6 +541,7 @@ export default function AdminPanel() {
         </button>
       </div>
 
+      {/* dynamic tab content */}
       {activeTab === "dashboard" && <DashboardView />}
       {activeTab === "tickets" && <TicketView />}
       {activeTab === "stock" && <StockView />}
