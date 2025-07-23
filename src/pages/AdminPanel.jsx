@@ -14,7 +14,12 @@ export default function AdminPanel() {
   const [serviceUsage, setServiceUsage] = useState([]);
   const [logs, setLogs] = useState([]);
 
-  // ✅ Login admin
+  const [stocks, setStocks] = useState([]); // ✅ stock summary từ backend
+  const [editingStock, setEditingStock] = useState(null);
+  const [newTotal, setNewTotal] = useState("");
+  const [newPrice, setNewPrice] = useState("");
+
+  // ✅ Admin login
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
@@ -29,11 +34,12 @@ export default function AdminPanel() {
         setIsLoggedIn(true);
         setToken(data.token);
 
-        // ✅ load data sau khi login
+        // ✅ Load tất cả sau khi login
         fetchDashboard(data.token);
         fetchTickets(data.token);
         fetchServiceUsage(data.token);
         fetchLogs(data.token);
+        fetchStock(data.token);
       } else {
         alert("❌ Wrong username or password!");
       }
@@ -69,7 +75,7 @@ export default function AdminPanel() {
     }
   };
 
-  // ✅ Service usage list
+  // ✅ Service usage
   const fetchServiceUsage = async (authToken = token) => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/service-usage`, {
@@ -82,7 +88,7 @@ export default function AdminPanel() {
     }
   };
 
-  // ✅ Fetch Logs
+  // ✅ Fetch logs
   const fetchLogs = async (authToken = token) => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/logs`, {
@@ -92,6 +98,19 @@ export default function AdminPanel() {
       if (data.success) setLogs(data.logs);
     } catch (err) {
       console.error("Logs fetch error:", err);
+    }
+  };
+
+  // ✅ Fetch stock (summary)
+  const fetchStock = async (authToken = token) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/ticket-stock-summary`, {
+        headers: { token: authToken },
+      });
+      const data = await res.json();
+      if (data.success) setStocks(data.summary);
+    } catch (err) {
+      console.error("Stock fetch error:", err);
     }
   };
 
@@ -120,6 +139,38 @@ export default function AdminPanel() {
         ? `${API_BASE}/api/admin/export`
         : `${API_BASE}/api/admin/export-services`;
     window.open(url, "_blank");
+  };
+
+  // ✅ Update stock
+  const handleUpdateStock = async (ticketType) => {
+    if (!newTotal) return alert("Please enter new total!");
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/update-stock`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          token,
+        },
+        body: JSON.stringify({
+          ticketType,
+          newTotal: parseInt(newTotal),
+          newPrice: newPrice ? parseInt(newPrice) : undefined,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        alert(`✅ Stock updated for ${ticketType}!`);
+        setEditingStock(null);
+        setNewTotal("");
+        setNewPrice("");
+        fetchStock();
+      } else {
+        alert(`❌ ${data.error}`);
+      }
+    } catch (err) {
+      console.error("Update stock error:", err);
+    }
   };
 
   // ✅ LOGIN FORM
@@ -266,6 +317,87 @@ export default function AdminPanel() {
     </>
   );
 
+  // ✅ Stock management view
+  const StockView = () => (
+    <div className="mt-4">
+      <h3>📦 Ticket Stock Management</h3>
+      <button className="btn btn-secondary mb-3" onClick={() => fetchStock()}>
+        🔄 Refresh Stock
+      </button>
+
+      {stocks.length === 0 ? (
+        <p className="text-muted text-center">No stock data found.</p>
+      ) : (
+        <div className="table-responsive">
+          <table className="table table-bordered text-center">
+            <thead className="table-dark">
+              <tr>
+                <th>Type</th>
+                <th>Price</th>
+                <th>Total</th>
+                <th>Sold</th>
+                <th>Remaining</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {stocks.map((s) => (
+                <tr key={s.ticketType}>
+                  <td>{s.ticketType.toUpperCase()}</td>
+                  <td>{s.price?.toLocaleString()}đ</td>
+                  <td>{s.total}</td>
+                  <td className="text-danger fw-bold">{s.sold}</td>
+                  <td className="text-success fw-bold">{s.remaining}</td>
+                  <td>
+                    {editingStock === s.ticketType ? (
+                      <div>
+                        <input
+                          className="form-control mb-1"
+                          placeholder="New total"
+                          value={newTotal}
+                          onChange={(e) => setNewTotal(e.target.value)}
+                        />
+                        <input
+                          className="form-control mb-1"
+                          placeholder="New price (optional)"
+                          value={newPrice}
+                          onChange={(e) => setNewPrice(e.target.value)}
+                        />
+                        <button
+                          className="btn btn-success btn-sm me-2"
+                          onClick={() => handleUpdateStock(s.ticketType)}
+                        >
+                          ✅ Save
+                        </button>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => {
+                            setEditingStock(null);
+                            setNewTotal("");
+                            setNewPrice("");
+                          }}
+                        >
+                          ❌ Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={() => setEditingStock(s.ticketType)}
+                      >
+                        ✏ Edit
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+
   // ✅ Service usage view
   const ServiceUsageView = () => (
     <>
@@ -368,6 +500,15 @@ export default function AdminPanel() {
           🎟 Tickets
         </button>
         <button
+          className={`btn ${activeTab === "stock" ? "btn-primary" : "btn-outline-primary"}`}
+          onClick={() => {
+            setActiveTab("stock");
+            fetchStock();
+          }}
+        >
+          📦 Stock
+        </button>
+        <button
           className={`btn ${activeTab === "services" ? "btn-primary" : "btn-outline-primary"}`}
           onClick={() => {
             setActiveTab("services");
@@ -389,6 +530,7 @@ export default function AdminPanel() {
 
       {activeTab === "dashboard" && <DashboardView />}
       {activeTab === "tickets" && <TicketView />}
+      {activeTab === "stock" && <StockView />}
       {activeTab === "services" && <ServiceUsageView />}
       {activeTab === "logs" && <LogsView />}
     </div>

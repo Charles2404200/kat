@@ -1,15 +1,13 @@
 import express from "express";
 import Ticket from "../models/Ticket.js";
+import TicketStock from "../models/TicketStock.js";
 import QRCode from "qrcode";
 import nodemailer from "nodemailer";
 import crypto from "crypto";
 
 const router = express.Router();
 
-// ✅ Railway domain
 const RAILWAY_URL = "https://kat-production-e428.up.railway.app";
-
-// ✅ Số phút pending được giữ (default 15 phút)
 const EXPIRATION_MINUTES = parseInt(process.env.PENDING_TICKET_EXPIRE_MINUTES || "15", 10);
 
 /**
@@ -21,71 +19,131 @@ function generateTicketHash(ticketId, email) {
 }
 
 /**
- * ✅ Create pending ticket
+ * ✅ Helper: sum quantity for given status
+ */
+async function getSoldQuantity(ticketType, status) {
+  const agg = await Ticket.aggregate([
+    { $match: { ticketType, status } },
+    { $group: { _id: null, totalQty: { $sum: "$quantity" } } }
+  ]);
+  return agg.length > 0 ? agg[0].totalQty : 0;
+}
+
+/**
+ * ✅ API FE fetch stock & remaining (cộng dồn quantity)
+ */
+router.get("/available-stock", async (req, res) => {
+  try {
+    const stocks = await TicketStock.find().lean();
+
+    const summary = await Promise.all(
+      stocks.map(async (s) => {
+        const sold = await getSoldQuantity(s.ticketType, "paid");
+        const pending = await getSoldQuantity(s.ticketType, "pending");
+        const remaining = s.total - (sold + pending);
+
+        return {
+          ticketType: s.ticketType,
+          price: s.price,
+          total: s.total,
+          remaining: remaining < 0 ? 0 : remaining
+        };
+      })
+    );
+
+    return res.json({ success: true, summary });
+  } catch (err) {
+    console.error("❌ Available Stock Error:", err);
+    res.status(500).json({ success: false, error: "Server error" });
+  }
+});
+
+/**
+ * ✅ Create pending ticket (block nếu vượt stock còn lại)
  */
 router.post("/create", async (req, res) => {
-  const { buyerEmail, ticketType, quantity, paymentMethod } = req.body;
-  const prices = { standard: 500000, vip: 1000000, vvip: 2500000 };
-  const totalPrice = prices[ticketType] * quantity;
+  try {
+    const { buyerEmail, ticketType, quantity, paymentMethod } = req.body;
+    const normalizedEmail = buyerEmail.trim().toLowerCase();
 
-  const normalizedEmail = buyerEmail.trim().toLowerCase();
+    // 1️⃣ Kiểm tra loại vé có tồn tại không
+    const stock = await TicketStock.findOne({ ticketType });
+    if (!stock) {
+      return res.status(400).json({ error: "❌ Ticket type not found" });
+    }
 
-  // 1️⃣ Nếu đã có vé paid -> chặn
-  const existingPaid = await Ticket.findOne({ buyerEmail: normalizedEmail, status: "paid" });
-  if (existingPaid) {
-    return res.status(403).json({
-      error: "❌ You already bought a ticket! Each person can only purchase 1 ticket.",
-      ticketType: existingPaid.ticketType,
-      quantity: existingPaid.quantity,
-      createdAt: existingPaid.createdAt,
+    // 2️⃣ Tính sold + pending (cộng dồn quantity)
+    const sold = await getSoldQuantity(ticketType, "paid");
+    const pending = await getSoldQuantity(ticketType, "pending");
+    const remaining = stock.total - (sold + pending);
+
+    if (remaining <= 0 || quantity > remaining) {
+      return res.status(400).json({
+        error: `❌ Not enough tickets available! Only ${remaining > 0 ? remaining : 0} left.`,
+      });
+    }
+
+    // 3️⃣ Nếu đã có vé paid -> chặn
+    const existingPaid = await Ticket.findOne({ buyerEmail: normalizedEmail, status: "paid" });
+    if (existingPaid) {
+      return res.status(403).json({
+        error: "❌ You already bought a ticket! Each person can only purchase 1 order.",
+        ticketType: existingPaid.ticketType,
+        quantity: existingPaid.quantity,
+        createdAt: existingPaid.createdAt,
+      });
+    }
+
+    // 4️⃣ Nếu có pending -> trả lại QR cũ
+    const existingPending = await Ticket.findOne({ buyerEmail: normalizedEmail, status: "pending" });
+    if (existingPending) {
+      const paymentLink = `${RAILWAY_URL}/fake-payment?ticketId=${existingPending._id}`;
+      const paymentQRUrl = await QRCode.toDataURL(paymentLink);
+
+      const expiresAt = new Date(existingPending.createdAt.getTime() + EXPIRATION_MINUTES * 60000);
+
+      return res.status(409).json({
+        error: "⚠️ You already have a pending ticket. Complete payment first!",
+        ticketId: existingPending._id,
+        ticketType: existingPending.ticketType,
+        quantity: existingPending.quantity,
+        amount: existingPending.totalPrice,
+        paymentQRUrl,
+        paymentLink,
+        expiresAt
+      });
+    }
+
+    // 5️⃣ Tạo vé pending mới
+    const totalPrice = stock.price * quantity;
+
+    const ticket = await Ticket.create({
+      buyerEmail: normalizedEmail,
+      ticketType,
+      quantity,
+      totalPrice,
+      status: "pending",
+      paymentMethod
     });
-  }
 
-  // 2️⃣ Nếu có pending -> trả lại cùng QR (không tạo thêm)
-  const existingPending = await Ticket.findOne({ buyerEmail: normalizedEmail, status: "pending" });
-  if (existingPending) {
-    const paymentLink = `${RAILWAY_URL}/fake-payment?ticketId=${existingPending._id}`;
+    const paymentLink = `${RAILWAY_URL}/fake-payment?ticketId=${ticket._id}`;
     const paymentQRUrl = await QRCode.toDataURL(paymentLink);
 
-    // Tính thời gian hết hạn dựa trên createdAt + expireMinutes
-    const expiresAt = new Date(existingPending.createdAt.getTime() + EXPIRATION_MINUTES * 60000);
+    const expiresAt = new Date(ticket.createdAt.getTime() + EXPIRATION_MINUTES * 60000);
 
-    return res.status(409).json({
-      error: "⚠️ You already have a pending ticket. Complete payment first!",
-      ticketId: existingPending._id,
-      ticketType: existingPending.ticketType,
-      quantity: existingPending.quantity,
-      amount: existingPending.totalPrice,
+    return res.json({
+      success: true,
+      ticketId: ticket._id,
+      amount: totalPrice,
       paymentQRUrl,
       paymentLink,
-      expiresAt // ✅ FE có thể hiển thị đếm ngược
+      expiresAt
     });
+
+  } catch (err) {
+    console.error("❌ Ticket create error:", err);
+    res.status(500).json({ error: "Server error" });
   }
-
-  // 3️⃣ Tạo vé pending mới
-  const ticket = await Ticket.create({
-    buyerEmail: normalizedEmail,
-    ticketType,
-    quantity,
-    totalPrice,
-    status: "pending",
-    paymentMethod
-  });
-
-  const paymentLink = `${RAILWAY_URL}/fake-payment?ticketId=${ticket._id}`;
-  const paymentQRUrl = await QRCode.toDataURL(paymentLink);
-
-  // ✅ FE sẽ tự tính expiresAt từ createdAt
-  const expiresAt = new Date(ticket.createdAt.getTime() + EXPIRATION_MINUTES * 60000);
-
-  res.json({
-    success: true,
-    ticketId: ticket._id,
-    amount: totalPrice,
-    paymentQRUrl,
-    paymentLink,
-    expiresAt
-  });
 });
 
 /**
@@ -144,7 +202,6 @@ router.get("/status/:ticketId", async (req, res) => {
 
     if (!ticket) return res.status(404).json({ success: false, error: "Ticket not found" });
 
-    // FE có thể tự tính expireAt = createdAt + expireMinutes
     const expiresAt = new Date(ticket.createdAt.getTime() + EXPIRATION_MINUTES * 60000);
 
     res.json({ success: true, status: ticket.status, expiresAt });

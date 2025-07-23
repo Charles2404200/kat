@@ -1,5 +1,71 @@
 [
   {
+    "time": "23/07/2025, 17:24:29",
+    "email": "ad@gmail.com",
+    "action": "🗑 Ticket deleted",
+    "staff": "Admin"
+  },
+  {
+    "time": "23/07/2025, 17:07:07",
+    "email": "admi@gmail.com",
+    "action": "🗑 Ticket deleted",
+    "staff": "Admin"
+  },
+  {
+    "time": "23/07/2025, 16:50:20",
+    "email": "leanhminh2404@gmail.com",
+    "action": "🗑 Ticket deleted",
+    "staff": "Admin"
+  },
+  {
+    "time": "23/07/2025, 16:50:18",
+    "email": "nnnn@gmail.com",
+    "action": "🗑 Ticket deleted",
+    "staff": "Admin"
+  },
+  {
+    "time": "23/07/2025, 16:50:16",
+    "email": "minh@gmail.com",
+    "action": "🗑 Ticket deleted",
+    "staff": "Admin"
+  },
+  {
+    "time": "23/07/2025, 16:50:14",
+    "email": "ad@gmail.com",
+    "action": "🗑 Ticket deleted",
+    "staff": "Admin"
+  },
+  {
+    "time": "23/07/2025, 16:45:47",
+    "email": "admin@system",
+    "action": "🔧 Admin updated stock for vip: total=60",
+    "staff": "Admin"
+  },
+  {
+    "time": "23/07/2025, 16:32:08",
+    "email": "admin@system",
+    "action": "🔧 Admin updated stock for vvip: total=2",
+    "staff": "Admin"
+  },
+  {
+    "time": "23/07/2025, 16:27:18",
+    "email": "admin@system",
+    "action": "🔧 Admin updated stock for standard: total=300",
+    "staff": "Admin"
+  },
+  {
+    "time": "23/07/2025, 16:06:02",
+    "email": "leanhminh2404@gmail.com",
+    "action": "🗑 Ticket deleted",
+    "staff": "Admin"
+  },
+  {
+    "time": "23/07/2025, 15:53:21",
+    "email": "admin@system",
+    "action": "🔧 Updated stock for standard: newTotal=200",
+    "staff": "Admin"
+  },
+  {
     "time": "23/07/2025, 14:56:00",
     "email": "leanhminh2404@gmail.com",
     "action": "🗑 Auto-deleted expired ticket",

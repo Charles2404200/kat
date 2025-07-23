@@ -7,27 +7,47 @@ export default function BuyTicket() {
   const [email, setEmail] = useState("");
   const [ticketType, setTicketType] = useState("standard");
   const [quantity, setQuantity] = useState(1);
-
   const [paymentMethod, setPaymentMethod] = useState("momo");
+
   const [ticketId, setTicketId] = useState(null);
   const [paymentQR, setPaymentQR] = useState(null);
-  const [expiresAt, setExpiresAt] = useState(null); // ✅ thêm thời gian hết hạn
-  const [countdown, setCountdown] = useState("");   // ✅ hiển thị đếm ngược
-
+  const [expiresAt, setExpiresAt] = useState(null);
+  const [countdown, setCountdown] = useState("");
   const [loading, setLoading] = useState(false);
 
   const [notification, setNotification] = useState(null);
   const [paymentCompleted, setPaymentCompleted] = useState(false);
 
-  const prices = {
-    standard: 500000,
-    vip: 1000000,
-    vvip: 2500000,
-  };
+  const [stockData, setStockData] = useState({});
 
-  const totalPrice = prices[ticketType] * quantity;
+  // ✅ Lấy stock từ BE khi mở trang
+  useEffect(() => {
+    async function fetchStock() {
+      try {
+        const res = await fetch(`${API_BASE}/api/tickets/available-stock`);
+        const data = await res.json();
+        if (data.success) {
+          const stockMap = {};
+          data.summary.forEach((item) => {
+            stockMap[item.ticketType] = {
+              price: item.price,
+              remaining: item.remaining
+            };
+          });
+          setStockData(stockMap);
+        }
+      } catch (err) {
+        console.error("Stock fetch error:", err);
+      }
+    }
+    fetchStock();
+  }, []);
 
-  // ✅ Poll ticket status (paid/expired)
+  const totalPrice = stockData[ticketType]?.price
+    ? stockData[ticketType].price * quantity
+    : 0;
+
+  // ✅ Polling status
   useEffect(() => {
     if (!ticketId) return;
 
@@ -35,51 +55,43 @@ export default function BuyTicket() {
       try {
         const res = await fetch(`${API_BASE}/api/tickets/status/${ticketId}`);
         if (res.status === 404) {
-          // Vé bị xóa -> báo expired
           clearInterval(interval);
           setNotification({
             type: "danger",
             title: "⏳ Ticket Expired & Deleted",
-            message: "Your pending ticket expired and was deleted. Please create a new ticket.",
+            message: "Your pending ticket expired. Please create a new one.",
           });
           resetForm();
           return;
         }
 
         const data = await res.json();
-
         if (data.success && data.status === "paid") {
           clearInterval(interval);
-
           setPaymentCompleted(true);
           setNotification({
             type: "success",
             title: "✅ Payment Completed!",
-            message:
-              "Your payment has been confirmed. The unique ticket QR has been sent to your email. Thank you!",
+            message: "Unique ticket QR has been sent to your email.",
           });
-
-          setTimeout(() => {
-            window.location.href = "/";
-          }, 3000);
+          setTimeout(() => (window.location.href = "/"), 3000);
         }
       } catch (err) {
         console.error("Polling error:", err);
       }
-    }, 5000); // check mỗi 5s
+    }, 5000);
 
     return () => clearInterval(interval);
   }, [ticketId]);
 
-  // ✅ Countdown cho expiresAt
+  // ✅ Countdown
   useEffect(() => {
     if (!expiresAt) return;
 
     const endTime = new Date(expiresAt).getTime();
     const countdownInterval = setInterval(() => {
-      const now = new Date().getTime();
+      const now = Date.now();
       const diff = endTime - now;
-
       if (diff <= 0) {
         setCountdown("Expired");
         clearInterval(countdownInterval);
@@ -93,7 +105,7 @@ export default function BuyTicket() {
     return () => clearInterval(countdownInterval);
   }, [expiresAt]);
 
-  // ✅ Create pending ticket & get payment QR
+  // ✅ Handle buy
   const handleBuy = async (e) => {
     e.preventDefault();
 
@@ -101,7 +113,17 @@ export default function BuyTicket() {
       setNotification({
         type: "danger",
         title: "❌ Missing Email",
-        message: "Please enter your email before proceeding.",
+        message: "Please enter your email.",
+      });
+      return;
+    }
+
+    const remaining = stockData[ticketType]?.remaining || 0;
+    if (quantity > remaining) {
+      setNotification({
+        type: "danger",
+        title: "❌ Not enough tickets",
+        message: `Only ${remaining} tickets remaining for ${ticketType.toUpperCase()}!`,
       });
       return;
     }
@@ -122,13 +144,11 @@ export default function BuyTicket() {
       const data = await res.json();
       setLoading(false);
 
-      if (res.status === 403) {
+      if (res.status === 400 || res.status === 403) {
         setNotification({
           type: "danger",
-          title: "❌ Ticket Already Purchased",
-          message: `You already bought a ticket!\nType: ${data.ticketType?.toUpperCase()} x${data.quantity}\nPurchased on: ${new Date(
-            data.createdAt
-          ).toLocaleString()}`,
+          title: "❌ Error",
+          message: data.error,
         });
         return;
       }
@@ -137,7 +157,7 @@ export default function BuyTicket() {
         setNotification({
           type: "warning",
           title: "⚠️ Pending Ticket",
-          message: `You already have a pending ticket. Please complete payment before buying another.`,
+          message: `You already have a pending ticket. Complete payment first.`,
         });
         setTicketId(data.ticketId);
         setPaymentQR(data.paymentQRUrl);
@@ -149,16 +169,16 @@ export default function BuyTicket() {
         setNotification({
           type: "success",
           title: "✅ Ticket Created",
-          message: `Scan the QR below using ${paymentMethod.toUpperCase()} to complete payment.`,
+          message: `Scan the QR below using ${paymentMethod.toUpperCase()} to pay.`,
         });
         setTicketId(data.ticketId);
         setPaymentQR(data.paymentQRUrl);
-        setExpiresAt(data.expiresAt); // ✅ nhận expiresAt để FE hiển thị countdown
+        setExpiresAt(data.expiresAt);
       } else {
         setNotification({
           type: "danger",
           title: "❌ Failed",
-          message: data.error || "Could not create ticket. Please try again.",
+          message: data.error || "Could not create ticket. Try again.",
         });
       }
     } catch (err) {
@@ -167,12 +187,11 @@ export default function BuyTicket() {
       setNotification({
         type: "danger",
         title: "❌ Server Error",
-        message: "Something went wrong. Please try again later!",
+        message: "Something went wrong. Try later.",
       });
     }
   };
 
-  // ✅ Reset form nếu vé expired/xóa
   const resetForm = () => {
     setTicketId(null);
     setPaymentQR(null);
@@ -184,7 +203,6 @@ export default function BuyTicket() {
   return (
     <>
       <Navbar />
-
       <div className="container" style={{ paddingTop: "100px", paddingBottom: "50px" }}>
         <div className="row justify-content-center">
           <div className="col-md-8">
@@ -215,17 +233,15 @@ export default function BuyTicket() {
                   </div>
                 )}
 
-                {/* ✅ Nếu thanh toán xong */}
+                {/* Nếu đã thanh toán */}
                 {paymentCompleted && (
                   <div className="text-center my-4">
                     <h4>🎉 Payment confirmed!</h4>
-                    <p className="text-muted">
-                      Redirecting you to the home page in a few seconds...
-                    </p>
+                    <p className="text-muted">Redirecting you to the home page...</p>
                   </div>
                 )}
 
-                {/* ✅ Hiển thị form khi chưa tạo vé */}
+                {/* Form mua vé */}
                 {!paymentQR && !paymentCompleted && (
                   <form onSubmit={handleBuy}>
                     <div className="mb-3">
@@ -245,24 +261,40 @@ export default function BuyTicket() {
                       <select
                         className="form-select"
                         value={ticketType}
-                        onChange={(e) => setTicketType(e.target.value)}
+                        onChange={(e) => {
+                          setTicketType(e.target.value);
+                          setQuantity(1);
+                        }}
                       >
-                        <option value="standard">🎟 Standard - 500.000đ</option>
-                        <option value="vip">⭐ VIP - 1.000.000đ</option>
-                        <option value="vvip">👑 VVIP - 2.500.000đ</option>
+                        {Object.keys(stockData).length === 0 ? (
+                          <option>Loading...</option>
+                        ) : (
+                          Object.keys(stockData).map((type) => (
+                            <option key={type} value={type}>
+                              {type.toUpperCase()} -{" "}
+                              {stockData[type].price.toLocaleString()}đ (
+                              {stockData[type].remaining} left)
+                            </option>
+                          ))
+                        )}
                       </select>
                     </div>
 
                     <div className="mb-3">
                       <label className="form-label fw-bold">Number of Tickets</label>
                       <input
-                        type="number"
-                        className="form-control"
-                        min="1"
-                        value={quantity}
-                        onChange={(e) => setQuantity(Number(e.target.value))}
-                        required
-                      />
+  type="number"
+  className="form-control"
+  min="1"
+  placeholder="Enter ticket quantity"
+  value={quantity}
+  onChange={(e) => setQuantity(e.target.value)}
+  required
+/>
+
+                      <small className="text-muted">
+                        Remaining: {stockData[ticketType]?.remaining ?? "Loading..."}
+                      </small>
                     </div>
 
                     <div className="mb-3">
@@ -286,13 +318,17 @@ export default function BuyTicket() {
                       </h4>
                     </div>
 
-                    <button type="submit" className="btn btn-warning w-100 fw-bold" disabled={loading}>
+                    <button
+                      type="submit"
+                      className="btn btn-warning w-100 fw-bold"
+                      disabled={loading}
+                    >
                       {loading ? "Processing..." : "✅ Confirm & Show Payment QR"}
                     </button>
                   </form>
                 )}
 
-                {/* ✅ Hiển thị QR + countdown */}
+                {/* QR thanh toán */}
                 {paymentQR && !paymentCompleted && (
                   <div className="text-center">
                     <h4 className="fw-bold mb-3">
