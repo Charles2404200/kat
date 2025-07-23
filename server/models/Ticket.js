@@ -5,10 +5,21 @@ const TicketSchema = new mongoose.Schema({
   ticketType: String,
   quantity: Number,
   totalPrice: Number,
-  status: { type: String, enum: ["pending", "paid", "cancelled"], default: "pending" },
+
+  status: { 
+    type: String, 
+    enum: ["pending", "paid", "cancelled"], 
+    default: "pending" 
+  },
+
   qrCodeUrl: String,
   ticketHash: String,
-  checkedIn: { type: Boolean, default: false }, // entrance check-in
+
+  checkedIn: { 
+    type: Boolean, 
+    default: false 
+  }, // entrance check-in
+
   servicesUsed: {   // ✅ Track which services are used
     type: Object,
     default: {
@@ -17,8 +28,12 @@ const TicketSchema = new mongoose.Schema({
       store: false
     }
   },
-  createdAt: { type: Date, default: Date.now }
-});
 
+  // ❌ Không cần expiresAt nữa
+  createdAt: { 
+    type: Date, 
+    default: Date.now 
+  }
+});
 
 export default mongoose.model("Ticket", TicketSchema);

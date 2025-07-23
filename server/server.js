@@ -10,6 +10,7 @@ import adminRoutes from "./routes/adminRoutes.js";
 import checkinRoutes from "./routes/checkinRoutes.js";
 import serviceRedeemRoutes from "./routes/serviceRedeemRoutes.js";
 import activityLogRoutes from "./routes/activityLogRoutes.js";
+import "./cron/expirePendingTickets.js";
 
 // ✅ Đảm bảo load đúng file .env trong server/
 const __filename = fileURLToPath(import.meta.url);

@@ -11,6 +11,8 @@ export default function BuyTicket() {
   const [paymentMethod, setPaymentMethod] = useState("momo");
   const [ticketId, setTicketId] = useState(null);
   const [paymentQR, setPaymentQR] = useState(null);
+  const [expiresAt, setExpiresAt] = useState(null); // ✅ thêm thời gian hết hạn
+  const [countdown, setCountdown] = useState("");   // ✅ hiển thị đếm ngược
 
   const [loading, setLoading] = useState(false);
 
@@ -25,29 +27,38 @@ export default function BuyTicket() {
 
   const totalPrice = prices[ticketType] * quantity;
 
-  // ✅ Poll ticket status after creating ticket
+  // ✅ Poll ticket status (paid/expired)
   useEffect(() => {
     if (!ticketId) return;
 
     const interval = setInterval(async () => {
       try {
         const res = await fetch(`${API_BASE}/api/tickets/status/${ticketId}`);
+        if (res.status === 404) {
+          // Vé bị xóa -> báo expired
+          clearInterval(interval);
+          setNotification({
+            type: "danger",
+            title: "⏳ Ticket Expired & Deleted",
+            message: "Your pending ticket expired and was deleted. Please create a new ticket.",
+          });
+          resetForm();
+          return;
+        }
+
         const data = await res.json();
 
         if (data.success && data.status === "paid") {
           clearInterval(interval);
 
-          // ✅ Show success card instead of just redirecting silently
           setPaymentCompleted(true);
-
           setNotification({
             type: "success",
             title: "✅ Payment Completed!",
             message:
-              "Your payment has been confirmed. Your unique ticket QR has been sent to your email. Thank you!",
+              "Your payment has been confirmed. The unique ticket QR has been sent to your email. Thank you!",
           });
 
-          // ✅ After showing message for 3 seconds, redirect
           setTimeout(() => {
             window.location.href = "/";
           }, 3000);
@@ -55,10 +66,32 @@ export default function BuyTicket() {
       } catch (err) {
         console.error("Polling error:", err);
       }
-    }, 2000);
+    }, 5000); // check mỗi 5s
 
     return () => clearInterval(interval);
   }, [ticketId]);
+
+  // ✅ Countdown cho expiresAt
+  useEffect(() => {
+    if (!expiresAt) return;
+
+    const endTime = new Date(expiresAt).getTime();
+    const countdownInterval = setInterval(() => {
+      const now = new Date().getTime();
+      const diff = endTime - now;
+
+      if (diff <= 0) {
+        setCountdown("Expired");
+        clearInterval(countdownInterval);
+      } else {
+        const min = Math.floor(diff / 60000);
+        const sec = Math.floor((diff % 60000) / 1000);
+        setCountdown(`${min}m ${sec}s`);
+      }
+    }, 1000);
+
+    return () => clearInterval(countdownInterval);
+  }, [expiresAt]);
 
   // ✅ Create pending ticket & get payment QR
   const handleBuy = async (e) => {
@@ -108,6 +141,7 @@ export default function BuyTicket() {
         });
         setTicketId(data.ticketId);
         setPaymentQR(data.paymentQRUrl);
+        setExpiresAt(data.expiresAt);
         return;
       }
 
@@ -119,6 +153,7 @@ export default function BuyTicket() {
         });
         setTicketId(data.ticketId);
         setPaymentQR(data.paymentQRUrl);
+        setExpiresAt(data.expiresAt); // ✅ nhận expiresAt để FE hiển thị countdown
       } else {
         setNotification({
           type: "danger",
@@ -135,6 +170,15 @@ export default function BuyTicket() {
         message: "Something went wrong. Please try again later!",
       });
     }
+  };
+
+  // ✅ Reset form nếu vé expired/xóa
+  const resetForm = () => {
+    setTicketId(null);
+    setPaymentQR(null);
+    setExpiresAt(null);
+    setCountdown("");
+    setPaymentCompleted(false);
   };
 
   return (
@@ -171,7 +215,7 @@ export default function BuyTicket() {
                   </div>
                 )}
 
-                {/* ✅ If payment completed, just show success message */}
+                {/* ✅ Nếu thanh toán xong */}
                 {paymentCompleted && (
                   <div className="text-center my-4">
                     <h4>🎉 Payment confirmed!</h4>
@@ -181,7 +225,7 @@ export default function BuyTicket() {
                   </div>
                 )}
 
-                {/* ✅ Show form only if no payment yet */}
+                {/* ✅ Hiển thị form khi chưa tạo vé */}
                 {!paymentQR && !paymentCompleted && (
                   <form onSubmit={handleBuy}>
                     <div className="mb-3">
@@ -248,7 +292,7 @@ export default function BuyTicket() {
                   </form>
                 )}
 
-                {/* ✅ Show payment QR only if waiting for payment */}
+                {/* ✅ Hiển thị QR + countdown */}
                 {paymentQR && !paymentCompleted && (
                   <div className="text-center">
                     <h4 className="fw-bold mb-3">
@@ -260,20 +304,15 @@ export default function BuyTicket() {
                       alt="Payment QR"
                       style={{ width: "250px", border: "4px solid #ddd", borderRadius: "8px" }}
                     />
-                    <p className="text-muted mt-3">
-                      Scan this QR using your <strong>{paymentMethod.toUpperCase()}</strong> app.
-                    </p>
 
-                    {/* ❌ Removed fallback link for desktop */}
+                    {countdown && (
+                      <p className="text-danger fw-bold mt-3">⏳ Expires in: {countdown}</p>
+                    )}
 
                     <div className="mt-4">
                       <button
                         className="btn btn-outline-secondary"
-                        onClick={() => {
-                          setTicketId(null);
-                          setPaymentQR(null);
-                          setNotification(null);
-                        }}
+                        onClick={resetForm}
                       >
                         ❌ Cancel & Back
                       </button>
