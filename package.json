@@ -8,6 +8,10 @@
     "dev:server": "nodemon server/server.js",
     "dev:frontend": "vite",
     "build": "vite build",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "prisma:studio": "prisma studio",
+    "prestart": "npm run prisma:generate", 
     "start": "node server/server.js"
   },
   "dependencies": {
