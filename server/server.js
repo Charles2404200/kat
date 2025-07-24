@@ -1,17 +1,21 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import mongoose from "mongoose";
 import path from "path";
 import { fileURLToPath } from "url";
 
-// ✅ Import API routes
+// ✅ Prisma Client
+import { prisma } from "./utils/prismaClient.js";
+
+// ✅ Import API routes (đã refactor Prisma)
 import ticketRoutes from "./routes/ticketRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import checkinRoutes from "./routes/checkinRoutes.js";
 import serviceRedeemRoutes from "./routes/serviceRedeemRoutes.js";
 import activityLogRoutes from "./routes/activityLogRoutes.js";
-import "./cron/expirePendingTickets.js"; // Cron job
+
+// ✅ Import Cron Job
+import "./cron/expirePendingTickets.js";
 
 // ✅ Resolve __dirname cho ES module
 const __filename = fileURLToPath(import.meta.url);
@@ -22,18 +26,23 @@ dotenv.config({ path: path.join(__dirname, ".env") });
 
 const app = express();
 
-// ✅ Kết nối MongoDB Atlas
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => console.log("✅ Connected to MongoDB"))
-  .catch((err) => console.error("❌ MongoDB connection error:", err));
+// ✅ Test kết nối Prisma DB khi start (MongoDB version)
+async function testPrismaConnection() {
+  try {
+    await prisma.ticket.findFirst(); // simple query to test connection
+    console.log("✅ Prisma connected to MongoDB successfully!");
+  } catch (err) {
+    console.error("❌ Prisma DB connection error:", err);
+  }
+}
+testPrismaConnection();
 
 // ✅ Mở full CORS để tránh lỗi frontend gọi API
 app.use(cors({ origin: "*" }));
 app.use(express.json());
 
 // =========================================
-// ✅ API ROUTES - luôn load TRƯỚC static
+// ✅ API ROUTES - load TRƯỚC static
 // =========================================
 app.use("/api/tickets", ticketRoutes);
 app.use("/api/admin", adminRoutes);

@@ -1,7 +1,5 @@
-/* eslint-env node */
 import express from "express";
-import Ticket from "../models/Ticket.js";
-import TicketStock from "../models/TicketStock.js";
+import { prisma } from "../utils/prismaClient.js";
 import { Parser } from "json2csv";
 import dotenv from "dotenv";
 import fs from "fs";
@@ -10,15 +8,12 @@ import path from "path";
 dotenv.config();
 const router = express.Router();
 
-// mấy info admin, fallback nếu chưa có .env thì dùng default
 const ADMIN_USER = process.env.ADMIN_USER || "admin";
 const ADMIN_PASS = process.env.ADMIN_PASS || "123456";
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "admin-secret-token";
 
-// file log local (để ghi activity)
 const LOG_FILE = path.join(process.cwd(), "logs.json");
 
-// helper: ghi log vào file json, tối đa 500 record
 export function appendLog(action, email, staff = "System") {
   let logs = [];
   if (fs.existsSync(LOG_FILE)) {
@@ -32,21 +27,18 @@ export function appendLog(action, email, staff = "System") {
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
-      second: "2-digit"
+      second: "2-digit",
     }),
     email,
     action,
-    staff
+    staff,
   });
 
-  // giữ tối đa 500 log cho nhẹ
   if (logs.length > 500) logs = logs.slice(0, 500);
   fs.writeFileSync(LOG_FILE, JSON.stringify(logs, null, 2));
 }
 
-/**
- * Admin login – check user/pass đơn giản, trả token cứng
- */
+// ✅ Admin login
 router.post("/login", (req, res) => {
   const { username, password } = req.body;
   if (username === ADMIN_USER && password === ADMIN_PASS) {
@@ -55,42 +47,51 @@ router.post("/login", (req, res) => {
   return res.status(401).json({ success: false, error: "Invalid credentials" });
 });
 
-/**
- * Lấy toàn bộ danh sách vé (cần token admin)
- */
+// ✅ Lấy toàn bộ vé
 router.get("/tickets", async (req, res) => {
-  if (req.headers.token !== ADMIN_TOKEN) return res.status(403).json({ error: "Unauthorized" });
-  const tickets = await Ticket.find().sort({ createdAt: -1 }); // sort mới nhất trước
+  if (req.headers.token !== ADMIN_TOKEN)
+    return res.status(403).json({ error: "Unauthorized" });
+
+  const tickets = await prisma.ticket.findMany({
+    orderBy: { createdAt: "desc" },
+  });
   res.json({ success: true, tickets });
 });
 
-/**
- * Xoá vé theo id – nếu có thì log lại
- */
+// ✅ Xoá vé
 router.delete("/ticket/:id", async (req, res) => {
-  if (req.headers.token !== ADMIN_TOKEN) return res.status(403).json({ error: "Unauthorized" });
+  if (req.headers.token !== ADMIN_TOKEN)
+    return res.status(403).json({ error: "Unauthorized" });
 
-  const ticket = await Ticket.findByIdAndDelete(req.params.id);
+  const ticket = await prisma.ticket.delete({
+    where: { id: req.params.id },
+  });
   if (ticket) appendLog("🗑 Ticket deleted", ticket.buyerEmail, "Admin");
 
   res.json({ success: true, message: "Ticket deleted" });
 });
 
-/**
- * Dashboard stats – tổng vé, đã checkin, chưa checkin + thống kê dịch vụ
- */
+// ✅ Dashboard stats
 router.get("/dashboard", async (req, res) => {
-  if (req.headers.token !== ADMIN_TOKEN) return res.status(403).json({ error: "Unauthorized" });
+  if (req.headers.token !== ADMIN_TOKEN)
+    return res.status(403).json({ error: "Unauthorized" });
 
-  const totalTickets = await Ticket.countDocuments();
-  const checkedInTickets = await Ticket.countDocuments({ checkedIn: true });
+  const totalTickets = await prisma.ticket.count();
+  const checkedInTickets = await prisma.ticket.count({
+    where: { checkedIn: true },
+  });
   const notCheckedInTickets = totalTickets - checkedInTickets;
 
-  // thống kê dịch vụ đã dùng
   const serviceStats = {
-    food: await Ticket.countDocuments({ "servicesUsed.food": true }),
-    drink: await Ticket.countDocuments({ "servicesUsed.drink": true }),
-    store: await Ticket.countDocuments({ "servicesUsed.store": true })
+    food: await prisma.ticket.count({
+      where: { servicesUsed: { path: ["food"], equals: true } },
+    }),
+    drink: await prisma.ticket.count({
+      where: { servicesUsed: { path: ["drink"], equals: true } },
+    }),
+    store: await prisma.ticket.count({
+      where: { servicesUsed: { path: ["store"], equals: true } },
+    }),
   };
 
   res.json({
@@ -99,35 +100,37 @@ router.get("/dashboard", async (req, res) => {
       totalTickets,
       checkedInTickets,
       notCheckedInTickets,
-      serviceStats
-    }
+      serviceStats,
+    },
   });
 });
 
-/**
- * Lấy danh sách vé đã dùng dịch vụ (food/drink/store)
- */
+// ✅ Lấy vé có dùng dịch vụ
 router.get("/service-usage", async (req, res) => {
-  if (req.headers.token !== ADMIN_TOKEN) return res.status(403).json({ error: "Unauthorized" });
+  if (req.headers.token !== ADMIN_TOKEN)
+    return res.status(403).json({ error: "Unauthorized" });
 
-  const tickets = await Ticket.find({
-    $or: [
-      { "servicesUsed.food": true },
-      { "servicesUsed.drink": true },
-      { "servicesUsed.store": true }
-    ]
-  }).sort({ updatedAt: -1 });
+  const tickets = await prisma.ticket.findMany({
+    where: {
+      OR: [
+        { servicesUsed: { path: ["food"], equals: true } },
+        { servicesUsed: { path: ["drink"], equals: true } },
+        { servicesUsed: { path: ["store"], equals: true } },
+      ],
+    },
+    orderBy: { createdAt: "desc" },
+  });
 
   res.json({ success: true, tickets });
 });
 
-/**
- * Export vé thành file CSV (email, loại vé, status, dịch vụ...)
- */
+// ✅ Export CSV
 router.get("/export", async (req, res) => {
-  if (req.headers.token !== ADMIN_TOKEN) return res.status(403).json({ error: "Unauthorized" });
+  if (req.headers.token !== ADMIN_TOKEN)
+    return res.status(403).json({ error: "Unauthorized" });
 
-  const tickets = await Ticket.find().lean();
+  const tickets = await prisma.ticket.findMany();
+
   const exportData = tickets.map((t) => ({
     email: t.buyerEmail,
     ticketType: t.ticketType,
@@ -137,7 +140,7 @@ router.get("/export", async (req, res) => {
     foodUsed: t.servicesUsed?.food ? "Yes" : "No",
     drinkUsed: t.servicesUsed?.drink ? "Yes" : "No",
     storeUsed: t.servicesUsed?.store ? "Yes" : "No",
-    createdAt: t.createdAt ? new Date(t.createdAt).toLocaleString() : ""
+    createdAt: t.createdAt ? new Date(t.createdAt).toLocaleString() : "",
   }));
 
   const fields = [
@@ -149,160 +152,116 @@ router.get("/export", async (req, res) => {
     "foodUsed",
     "drinkUsed",
     "storeUsed",
-    "createdAt"
+    "createdAt",
   ];
-  const json2csv = new Parser({ fields });
-  const csv = json2csv.parse(exportData);
+  const parser = new Parser({ fields });
+  const csv = parser.parse(exportData);
 
   res.header("Content-Type", "text/csv");
   res.attachment("tickets_export.csv");
   return res.send(csv);
 });
 
-/**
- * Export danh sách vé có sử dụng dịch vụ – CSV
- */
-router.get("/export-services", async (req, res) => {
-  if (req.headers.token !== ADMIN_TOKEN) return res.status(403).json({ error: "Unauthorized" });
-
-  const tickets = await Ticket.find({
-    $or: [
-      { "servicesUsed.food": true },
-      { "servicesUsed.drink": true },
-      { "servicesUsed.store": true }
-    ]
-  }).lean();
-
-  const exportData = tickets.map((t) => ({
-    Email: t.buyerEmail,
-    TicketType: t.ticketType,
-    CheckedIn: t.checkedIn ? "Yes" : "No",
-    Food: t.servicesUsed?.food ? "Yes" : "No",
-    Drink: t.servicesUsed?.drink ? "Yes" : "No",
-    Store: t.servicesUsed?.store ? "Yes" : "No",
-    UpdatedAt: t.updatedAt ? new Date(t.updatedAt).toLocaleString() : ""
-  }));
-
-  const fields = ["Email", "TicketType", "CheckedIn", "Food", "Drink", "Store", "UpdatedAt"];
-  const parser = new Parser({ fields });
-  const csv = parser.parse(exportData);
-
-  res.header("Content-Type", "text/csv");
-  res.attachment("service_usage.csv");
-  return res.send(csv);
-});
-
-/**
- * Lấy logs (ghi local) – max 500 log
- */
-router.get("/logs", async (req, res) => {
-  if (req.headers.token !== ADMIN_TOKEN) return res.status(403).json({ success: false, error: "Unauthorized" });
-
-  let logs = [];
-  if (fs.existsSync(LOG_FILE)) logs = JSON.parse(fs.readFileSync(LOG_FILE, "utf8"));
-  res.json({ success: true, logs });
-});
-
-/**
- * Tóm tắt stock vé – tính sold bằng $sum quantity
- */
+// ✅ Stock summary
 router.get("/ticket-stock-summary", async (req, res) => {
-  if (req.headers.token !== ADMIN_TOKEN) return res.status(403).json({ success: false, error: "Unauthorized" });
+  if (req.headers.token !== ADMIN_TOKEN)
+    return res.status(403).json({ success: false, error: "Unauthorized" });
 
-  try {
-    const stocks = await TicketStock.find().lean();
+  const stocks = await prisma.ticketStock.findMany();
 
-    const summary = await Promise.all(
-      stocks.map(async (s) => {
-        // tổng vé đã bán (sum quantity)
-        const agg = await Ticket.aggregate([
-          { $match: { ticketType: s.ticketType, status: "paid" } },
-          { $group: { _id: null, totalSold: { $sum: "$quantity" } } }
-        ]);
-        const sold = agg.length > 0 ? agg[0].totalSold : 0;
-        const remaining = s.total - sold;
+  const summary = await Promise.all(
+    stocks.map(async (s) => {
+      const sold = await prisma.ticket.aggregate({
+        _sum: { quantity: true },
+        where: { ticketType: s.ticketType, status: "paid" },
+      });
+      const soldQty = sold._sum.quantity ?? 0;
+      const remaining = s.total - soldQty;
 
-        return {
-          ticketType: s.ticketType,
-          price: s.price,
-          total: s.total,
-          sold,
-          remaining: remaining < 0 ? 0 : remaining
-        };
-      })
-    );
+      return {
+        ticketType: s.ticketType,
+        price: s.price,
+        total: s.total,
+        sold: soldQty,
+        remaining: remaining < 0 ? 0 : remaining,
+      };
+    })
+  );
 
-    return res.json({ success: true, summary });
-  } catch (err) {
-    console.error("❌ Stock summary error:", err);
-    res.status(500).json({ success: false, error: "Server error" });
-  }
+  return res.json({ success: true, summary });
 });
 
-/**
- * Admin update stock (validate tổng sold < newTotal)
- */
+// ✅ Update stock
 router.post("/update-stock", async (req, res) => {
-  if (req.headers.token !== ADMIN_TOKEN) return res.status(403).json({ success: false, error: "Unauthorized" });
+  if (req.headers.token !== ADMIN_TOKEN)
+    return res.status(403).json({ success: false, error: "Unauthorized" });
 
   const { ticketType, newTotal, newPrice } = req.body;
   if (!ticketType || typeof newTotal !== "number") {
-    return res.status(400).json({ success: false, error: "ticketType & newTotal required!" });
+    return res
+      .status(400)
+      .json({ success: false, error: "ticketType & newTotal required!" });
   }
 
-  try {
-    const stock = await TicketStock.findOne({ ticketType });
-    if (!stock) return res.status(404).json({ success: false, error: "Ticket type not found!" });
+  const soldAgg = await prisma.ticket.aggregate({
+    _sum: { quantity: true },
+    where: { ticketType, status: "paid" },
+  });
+  const sold = soldAgg._sum.quantity ?? 0;
 
-    // check xem đã bán bao nhiêu
-    const agg = await Ticket.aggregate([
-      { $match: { ticketType, status: "paid" } },
-      { $group: { _id: null, totalSold: { $sum: "$quantity" } } }
-    ]);
-    const sold = agg.length > 0 ? agg[0].totalSold : 0;
-
-    if (newTotal < sold) {
-      return res.status(400).json({
-        success: false,
-        error: `❌ Cannot reduce below sold tickets (${sold})`
-      });
-    }
-
-    stock.total = newTotal;
-    if (newPrice && typeof newPrice === "number") stock.price = newPrice;
-    await stock.save();
-
-    appendLog(
-      `🔧 Admin updated stock for ${ticketType}: total=${newTotal}${newPrice ? `, price=${newPrice}` : ""}`,
-      "admin@system",
-      "Admin"
-    );
-
-    return res.json({
-      success: true,
-      message: `✅ Stock updated for ${ticketType}`,
-      data: stock
+  if (newTotal < sold) {
+    return res.status(400).json({
+      success: false,
+      error: `❌ Cannot reduce below sold tickets (${sold})`,
     });
-  } catch (err) {
-    console.error("❌ Update Stock Error:", err);
-    res.status(500).json({ success: false, error: "Server error" });
   }
+
+  const stock = await prisma.ticketStock.update({
+    where: { ticketType },
+    data: {
+      total: newTotal,
+      ...(newPrice && { price: newPrice }),
+    },
+  });
+
+  appendLog(
+    `🔧 Admin updated stock for ${ticketType}: total=${newTotal}${
+      newPrice ? `, price=${newPrice}` : ""
+    }`,
+    "admin@system",
+    "Admin"
+  );
+
+  return res.json({
+    success: true,
+    message: `✅ Stock updated for ${ticketType}`,
+    data: stock,
+  });
 });
 
-/**
- * Admin add thêm loại vé mới
- */
+// ✅ Add new stock
 router.post("/add-stock", async (req, res) => {
-  if (req.headers.token !== ADMIN_TOKEN) return res.status(403).json({ success: false, error: "Unauthorized" });
+  if (req.headers.token !== ADMIN_TOKEN)
+    return res.status(403).json({ success: false, error: "Unauthorized" });
 
   const { ticketType, total, price } = req.body;
   if (!ticketType || !total || !price)
-    return res.status(400).json({ success: false, error: "ticketType, total, price required" });
+    return res
+      .status(400)
+      .json({ success: false, error: "ticketType, total, price required" });
 
-  const exists = await TicketStock.findOne({ ticketType });
-  if (exists) return res.status(400).json({ success: false, error: "Ticket type already exists!" });
+  const exists = await prisma.ticketStock.findUnique({
+    where: { ticketType },
+  });
+  if (exists)
+    return res
+      .status(400)
+      .json({ success: false, error: "Ticket type already exists!" });
 
-  const stock = await TicketStock.create({ ticketType, total, price });
+  const stock = await prisma.ticketStock.create({
+    data: { ticketType, total, remaining: total, price },
+  });
+
   appendLog(`➕ Added new stock type ${ticketType}`, "admin@system", "Admin");
 
   res.json({ success: true, message: "Stock created", stock });

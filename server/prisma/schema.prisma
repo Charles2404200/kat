@@ -1,0 +1,81 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model Ticket {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  buyerEmail    String
+  ticketType    String
+  quantity      Int
+  totalPrice    Int
+  status        String   @default("pending")         // "pending", "paid", "cancelled"
+  qrCodeUrl     String?
+  ticketHash    String?
+  checkedIn     Boolean  @default(false)
+  servicesUsed  Json     @default("{}")
+  createdAt     DateTime @default(now())
+
+  // Quan hệ explicit
+  transactionLinks TransactionTicketLink[]
+  logs             Log[]
+}
+
+model TicketStock {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  ticketType String   @unique
+  total      Int
+  remaining  Int
+  price      Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Transaction {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  buyerId       String?  @db.ObjectId
+  buyer         User?    @relation(fields: [buyerId], references: [id])
+
+  // Quan hệ explicit
+  ticketLinks   TransactionTicketLink[]
+
+  amount        Int
+  paymentMethod String     // "momo" | "vnpay"
+  status        String     @default("pending") // "pending", "success", "failed"
+  createdAt     DateTime   @default(now())
+}
+
+model TransactionTicketLink {
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  transactionId String       @db.ObjectId
+  ticketId      String       @db.ObjectId
+
+  transaction   Transaction  @relation(fields: [transactionId], references: [id])
+  ticket        Ticket       @relation(fields: [ticketId], references: [id])
+
+  createdAt     DateTime @default(now())
+}
+
+model User {
+  id           String         @id @default(auto()) @map("_id") @db.ObjectId
+  name         String
+  email        String         @unique
+  password     String
+  role         String         @default("customer")  // "customer", "staff", "admin"
+
+  transactions Transaction[]
+}
+
+model Log {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  ticketId   String?  @db.ObjectId
+  ticket     Ticket?  @relation(fields: [ticketId], references: [id])
+  buyerEmail String
+  action     String
+  staff      String   @default("system")
+  timestamp  DateTime @default(now())
+}

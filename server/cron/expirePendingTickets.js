@@ -1,6 +1,5 @@
 import cron from "node-cron";
-import Ticket from "../models/Ticket.js";
-import TicketStock from "../models/TicketStock.js";
+import { prisma } from "../utils/prismaClient.js";
 import { appendLog } from "../routes/adminRoutes.js";
 
 // Lấy thời gian hết hạn từ ENV, mặc định 15 phút
@@ -12,12 +11,15 @@ cron.schedule("* * * * *", async () => {
   try {
     console.log("⏳ Running pending ticket cleanup job...");
 
-    const now = Date.now();
+    const now = new Date();
+    const expiredBefore = new Date(now.getTime() - EXPIRE_MINUTES);
 
-    // Tìm các vé pending quá hạn
-    const expiredTickets = await Ticket.find({
-      status: "pending",
-      createdAt: { $lte: new Date(now - EXPIRE_MINUTES) }
+    // ✅ Tìm các vé pending quá hạn
+    const expiredTickets = await prisma.ticket.findMany({
+      where: {
+        status: "pending",
+        createdAt: { lt: expiredBefore }
+      }
     });
 
     if (!expiredTickets.length) {
@@ -27,21 +29,31 @@ cron.schedule("* * * * *", async () => {
 
     console.log(`⏳ Found ${expiredTickets.length} expired tickets, deleting...`);
 
+    // ✅ Lặp qua từng ticket để hoàn lại stock
     for (const ticket of expiredTickets) {
-      // ✅ Hoàn lại stock
-      const stock = await TicketStock.findOne({ ticketType: ticket.ticketType });
+      const stock = await prisma.ticketStock.findUnique({
+        where: { ticketType: ticket.ticketType }
+      });
+
       if (stock) {
-        stock.remaining += ticket.quantity;
-        await stock.save();
+        // ✅ Tăng lại remaining
+        await prisma.ticketStock.update({
+          where: { ticketType: ticket.ticketType },
+          data: {
+            remaining: stock.remaining + ticket.quantity
+          }
+        });
       }
 
       // ✅ Ghi log trước khi xoá
       appendLog(`🗑 Auto-deleted expired ticket`, ticket.buyerEmail, "System");
     }
 
-    // ✅ Xoá tất cả vé pending đã hết hạn
-    const idsToDelete = expiredTickets.map(t => t._id);
-    await Ticket.deleteMany({ _id: { $in: idsToDelete } });
+    // ✅ Xóa tất cả vé pending đã hết hạn
+    const idsToDelete = expiredTickets.map((t) => t.id);
+    await prisma.ticket.deleteMany({
+      where: { id: { in: idsToDelete } }
+    });
 
     console.log(`✅ Deleted ${expiredTickets.length} expired tickets`);
   } catch (err) {
