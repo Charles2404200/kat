@@ -3,7 +3,7 @@ import Home from "./pages/Home";
 import BuyTicket from "./pages/BuyTicket";
 import FakePayment from "./pages/FakePayment";
 import AdminPanel from "./pages/AdminPanel";
-import CheckIn from "./pages/CheckIn";  // ✅ make sure this exists
+import CheckIn from "./pages/CheckIn";  //
 import ServiceCheck from "./pages/ServiceCheck";
 
 function App() {
