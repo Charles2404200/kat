@@ -20,7 +20,7 @@ export default function BuyTicket() {
 
   const [stockData, setStockData] = useState({});
 
-  // ✅ Lấy stock từ BE khi mở trang
+  //  Lấy stock từ BE khi mở trang
   useEffect(() => {
     async function fetchStock() {
       try {
@@ -47,7 +47,7 @@ export default function BuyTicket() {
     ? stockData[ticketType].price * quantity
     : 0;
 
-  // ✅ Polling status
+  //  Polling status
   useEffect(() => {
     if (!ticketId) return;
 
@@ -84,7 +84,7 @@ export default function BuyTicket() {
     return () => clearInterval(interval);
   }, [ticketId]);
 
-  // ✅ Countdown
+  //  Countdown
   useEffect(() => {
     if (!expiresAt) return;
 
@@ -105,14 +105,14 @@ export default function BuyTicket() {
     return () => clearInterval(countdownInterval);
   }, [expiresAt]);
 
-  // ✅ Handle buy
+  //  Handle buy
   const handleBuy = async (e) => {
     e.preventDefault();
 
     if (!email) {
       setNotification({
         type: "danger",
-        title: "❌ Missing Email",
+        title: " Missing Email",
         message: "Please enter your email.",
       });
       return;
@@ -122,7 +122,7 @@ export default function BuyTicket() {
     if (quantity > remaining) {
       setNotification({
         type: "danger",
-        title: "❌ Not enough tickets",
+        title: " Not enough tickets",
         message: `Only ${remaining} tickets remaining for ${ticketType.toUpperCase()}!`,
       });
       return;
@@ -147,7 +147,7 @@ export default function BuyTicket() {
       if (res.status === 400 || res.status === 403) {
         setNotification({
           type: "danger",
-          title: "❌ Error",
+          title: " Error",
           message: data.error,
         });
         return;
@@ -156,7 +156,7 @@ export default function BuyTicket() {
       if (res.status === 409) {
         setNotification({
           type: "warning",
-          title: "⚠️ Pending Ticket",
+          title: " Pending Ticket",
           message: `You already have a pending ticket. Complete payment first.`,
         });
         setTicketId(data.ticketId);
@@ -168,7 +168,7 @@ export default function BuyTicket() {
       if (data.success) {
         setNotification({
           type: "success",
-          title: "✅ Ticket Created",
+          title: " Ticket Created",
           message: `Scan the QR below using ${paymentMethod.toUpperCase()} to pay.`,
         });
         setTicketId(data.ticketId);
@@ -177,7 +177,7 @@ export default function BuyTicket() {
       } else {
         setNotification({
           type: "danger",
-          title: "❌ Failed",
+          title: " Failed",
           message: data.error || "Could not create ticket. Try again.",
         });
       }
@@ -186,7 +186,7 @@ export default function BuyTicket() {
       setLoading(false);
       setNotification({
         type: "danger",
-        title: "❌ Server Error",
+        title: " Server Error",
         message: "Something went wrong. Try later.",
       });
     }
@@ -208,7 +208,7 @@ export default function BuyTicket() {
           <div className="col-md-8">
             <div className="card shadow-lg">
               <div className="card-body p-4">
-                <h2 className="fw-bold text-center mb-4">🎟 Get Your Ticket</h2>
+                <h2 className="fw-bold text-center mb-4"> Get Your Ticket</h2>
 
                 {notification && (
                   <div className={`card border-${notification.type} mb-3`}>
@@ -236,7 +236,7 @@ export default function BuyTicket() {
                 {/* Nếu đã thanh toán */}
                 {paymentCompleted && (
                   <div className="text-center my-4">
-                    <h4>🎉 Payment confirmed!</h4>
+                    <h4> Payment confirmed!</h4>
                     <p className="text-muted">Redirecting you to the home page...</p>
                   </div>
                 )}
@@ -323,7 +323,7 @@ export default function BuyTicket() {
                       className="btn btn-warning w-100 fw-bold"
                       disabled={loading}
                     >
-                      {loading ? "Processing..." : "✅ Confirm & Show Payment QR"}
+                      {loading ? "Processing..." : " Confirm & Show Payment QR"}
                     </button>
                   </form>
                 )}
@@ -350,7 +350,7 @@ export default function BuyTicket() {
                         className="btn btn-outline-secondary"
                         onClick={resetForm}
                       >
-                        ❌ Cancel & Back
+                         Cancel & Back
                       </button>
                     </div>
                   </div>
