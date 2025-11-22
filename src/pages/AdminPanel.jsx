@@ -47,11 +47,11 @@ export default function AdminPanel() {
         fetchLogs(data.token);
         fetchStock(data.token);
       } else {
-        alert("❌ Wrong username or password!");
+        alert(" Wrong username or password!");
       }
     } catch (err) {
       console.error("Login error:", err);
-      alert("❌ Server error while login!");
+      alert(" Server error while login!");
     }
   };
 
@@ -130,7 +130,7 @@ export default function AdminPanel() {
       });
       const data = await res.json();
       if (data.success) {
-        alert("✅ Deleted!");
+        alert(" Deleted!");
         fetchTickets();
       }
     } catch (err) {
@@ -166,13 +166,13 @@ export default function AdminPanel() {
 
       const data = await res.json();
       if (data.success) {
-        alert(`✅ Stock updated for ${ticketType}!`);
+        alert(` Stock updated for ${ticketType}!`);
         setEditingStock(null);
         setNewTotal("");
         setNewPrice("");
         fetchStock(); // reload stock summary
       } else {
-        alert(`❌ ${data.error}`);
+        alert(` ${data.error}`);
       }
     } catch (err) {
       console.error("Update stock error:", err);
@@ -183,7 +183,7 @@ export default function AdminPanel() {
   if (!isLoggedIn) {
     return (
       <div className="container" style={{ marginTop: "100px" }}>
-        <h2 className="text-center mb-4">🔒 Admin Login</h2>
+        <h2 className="text-center mb-4"> Admin Login</h2>
         <form
           className="card p-4 shadow"
           style={{ maxWidth: "400px", margin: "0 auto" }}
@@ -217,7 +217,7 @@ export default function AdminPanel() {
   // ====== DASHBOARD VIEW ======
   const DashboardView = () => (
     <div className="mt-4">
-      <h3>📊 Realtime Dashboard</h3>
+      <h3> Realtime Dashboard</h3>
       {!dashboardStats ? (
         <p className="text-muted">Loading...</p>
       ) : (
@@ -232,21 +232,21 @@ export default function AdminPanel() {
           {/* checked-in */}
           <div className="col-md-3">
             <div className="card shadow-sm p-3">
-              <h6>✅ Checked-In</h6>
+              <h6> Checked-In</h6>
               <h2 className="text-success">{dashboardStats.checkedInTickets}</h2>
             </div>
           </div>
           {/* not checked-in */}
           <div className="col-md-3">
             <div className="card shadow-sm p-3">
-              <h6>⏳ Not Checked-In</h6>
+              <h6> Not Checked-In</h6>
               <h2 className="text-warning">{dashboardStats.notCheckedInTickets}</h2>
             </div>
           </div>
           {/* service stats */}
           <div className="col-md-3">
             <div className="card shadow-sm p-3">
-              <h6>🍔 Services Used</h6>
+              <h6> Services Used</h6>
               <p>Food: {dashboardStats.serviceStats.food}</p>
               <p>Drink: {dashboardStats.serviceStats.drink}</p>
               <p>Store: {dashboardStats.serviceStats.store}</p>
@@ -261,13 +261,13 @@ export default function AdminPanel() {
   const TicketView = () => (
     <>
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h3>🎟 Ticket Management</h3>
+        <h3> Ticket Management</h3>
         <div>
           <button className="btn btn-success me-2" onClick={() => downloadExport("all")}>
             ⬇ Export All
           </button>
           <button className="btn btn-secondary" onClick={() => fetchTickets()}>
-            🔄 Refresh
+             Refresh
           </button>
         </div>
       </div>
@@ -331,9 +331,9 @@ export default function AdminPanel() {
   // ====== STOCK MANAGEMENT VIEW ======
   const StockView = () => (
     <div className="mt-4">
-      <h3>📦 Ticket Stock Management</h3>
+      <h3> Ticket Stock Management</h3>
       <button className="btn btn-secondary mb-3" onClick={() => fetchStock()}>
-        🔄 Refresh Stock
+         Refresh Stock
       </button>
 
       {stocks.length === 0 ? (
@@ -378,7 +378,7 @@ export default function AdminPanel() {
                           className="btn btn-success btn-sm me-2"
                           onClick={() => handleUpdateStock(s.ticketType)}
                         >
-                          ✅ Save
+                           Save
                         </button>
                         <button
                           className="btn btn-secondary btn-sm"
@@ -388,7 +388,7 @@ export default function AdminPanel() {
                             setNewPrice("");
                           }}
                         >
-                          ❌ Cancel
+                           Cancel
                         </button>
                       </div>
                     ) : (
@@ -396,7 +396,7 @@ export default function AdminPanel() {
                         className="btn btn-primary btn-sm"
                         onClick={() => setEditingStock(s.ticketType)}
                       >
-                        ✏ Edit
+                         Edit
                       </button>
                     )}
                   </td>
@@ -413,13 +413,13 @@ export default function AdminPanel() {
   const ServiceUsageView = () => (
     <>
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h3>🍔 Service Usage</h3>
+        <h3> Service Usage</h3>
         <div>
           <button className="btn btn-success me-2" onClick={() => downloadExport("services")}>
             ⬇ Export Service Usage
           </button>
           <button className="btn btn-secondary" onClick={() => fetchServiceUsage()}>
-            🔄 Refresh
+             Refresh
           </button>
         </div>
       </div>
@@ -459,7 +459,7 @@ export default function AdminPanel() {
   // ====== LOGS VIEW ======
   const LogsView = () => (
     <div className="mt-4">
-      <h3>📜 Activity Logs</h3>
+      <h3> Activity Logs</h3>
       {logs.length === 0 ? (
         <p className="text-muted text-center">No logs recorded yet.</p>
       ) : (
@@ -501,7 +501,7 @@ export default function AdminPanel() {
             fetchDashboard();
           }}
         >
-          📊 Dashboard
+           Dashboard
         </button>
         <button
           className={`btn ${activeTab === "tickets" ? "btn-primary" : "btn-outline-primary"}`}
@@ -510,7 +510,7 @@ export default function AdminPanel() {
             fetchTickets();
           }}
         >
-          🎟 Tickets
+          Tickets
         </button>
         <button
           className={`btn ${activeTab === "stock" ? "btn-primary" : "btn-outline-primary"}`}
@@ -519,7 +519,7 @@ export default function AdminPanel() {
             fetchStock();
           }}
         >
-          📦 Stock
+           Stock
         </button>
         <button
           className={`btn ${activeTab === "services" ? "btn-primary" : "btn-outline-primary"}`}
@@ -528,7 +528,7 @@ export default function AdminPanel() {
             fetchServiceUsage();
           }}
         >
-          🍔 Service Usage
+           Service Usage
         </button>
         <button
           className={`btn ${activeTab === "logs" ? "btn-primary" : "btn-outline-primary"}`}
@@ -537,7 +537,7 @@ export default function AdminPanel() {
             fetchLogs();
           }}
         >
-          📜 Logs
+           Logs
         </button>
       </div>
 
