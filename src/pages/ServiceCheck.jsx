@@ -11,7 +11,7 @@ export default function ServiceCheck() {
   const [scanning, setScanning] = useState(true);
   const [ticketId, setTicketId] = useState(null);
 
-  // ✅ Step 1: Validate QR only (no redeem)
+  //  Step 1: Validate QR only (no redeem)
   const validateTicketForService = async (payload) => {
     try {
       const res = await fetch(`${API_BASE}/api/checkin/validate`, {
@@ -49,7 +49,7 @@ export default function ServiceCheck() {
     }
   };
 
-  // ✅ Step 2: Confirm redeem
+  //  Step 2: Confirm redeem
   const confirmRedeemService = async () => {
   if (!ticketId) return;
   try {
@@ -72,7 +72,7 @@ export default function ServiceCheck() {
   }
 };
 
-  // ✅ Scan handler
+  //  Scan handler
   const handleDecodedText = async (decodedText) => {
     console.log("QR scanned:", decodedText);
     try {
@@ -88,7 +88,7 @@ export default function ServiceCheck() {
     }
   };
 
-  // ✅ Init scanner
+  //  Init scanner
   useEffect(() => {
     if (!scanning) return;
 
