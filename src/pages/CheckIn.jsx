@@ -9,7 +9,7 @@ export default function CheckIn() {
   const [scanning, setScanning] = useState(true);
   const [ticketId, setTicketId] = useState(null);
 
-  // ✅ Validate QR payload with backend
+  //  Validate QR payload with backend
   const validateTicket = async (payload) => {
     try {
       const res = await fetch(`${API_BASE}/api/checkin/validate`, {
@@ -31,7 +31,7 @@ export default function CheckIn() {
         ticketInfo: data.ticketInfo || null,
       });
 
-      // ✅ Save ticketId for manual confirm later
+      //  Save ticketId for manual confirm later
       if (data.success && data.ticketInfo?.id) {
         setTicketId(data.ticketInfo.id);
       }
@@ -45,7 +45,7 @@ export default function CheckIn() {
     }
   };
 
-  // ✅ Confirm Check-In after scan
+  //  Confirm Check-In after scan
   const confirmCheckIn = async () => {
     if (!ticketId) return;
     try {
@@ -57,20 +57,20 @@ export default function CheckIn() {
 
       const data = await res.json();
       if (data.success) {
-        alert("✅ Ticket Checked-In Successfully!");
+        alert(" Ticket Checked-In Successfully!");
         window.location.reload(); // reset for next scan
       } else {
         alert(data.message);
       }
     } catch (err) {
       console.error("Manual check-in error:", err);
-      alert("❌ Server error while confirming check-in!");
+      alert(" Server error while confirming check-in!");
     }
   };
 
-  // ✅ Handle scanned QR
+  //  Handle scanned QR
   const handleDecodedText = async (decodedText) => {
-    console.log("✅ QR Scanned/Decoded:", decodedText);
+    console.log(" QR Scanned/Decoded:", decodedText);
     try {
       const payload = JSON.parse(decodedText);
       await validateTicket(payload);
@@ -85,7 +85,7 @@ export default function CheckIn() {
     }
   };
 
-  // ✅ Initialize QR scanner
+  //  Initialize QR scanner
   useEffect(() => {
     if (!scanning) return;
 
@@ -116,15 +116,15 @@ export default function CheckIn() {
           <div className="col-md-8">
             <div className="card shadow-lg">
               <div className="card-body text-center">
-                <h2 className="fw-bold mb-4">🚪 Gate Check-In</h2>
+                <h2 className="fw-bold mb-4"> Gate Check-In</h2>
                 <p className="text-muted">Scan the QR code on the ticket</p>
 
-                {/* ✅ QR Scanner */}
+                {/*  QR Scanner */}
                 {scanning && (
                   <div id="qr-reader" style={{ width: "100%", maxWidth: "400px", margin: "0 auto" }}></div>
                 )}
 
-                {/* ✅ Show validation result */}
+                {/*  Show validation result */}
                 {validationResult && (
                   <div
                     className={`card mt-4 border-${
@@ -160,20 +160,20 @@ export default function CheckIn() {
                   </div>
                 )}
 
-                {/* ✅ Show Confirm Button if valid & NOT already checked-in */}
+                {/*  Show Confirm Button if valid & NOT already checked-in */}
                 {validationResult?.success && !validationResult.ticketInfo?.checkedIn && (
                   <div className="mt-4">
                     <button className="btn btn-primary btn-lg" onClick={confirmCheckIn}>
-                      ✅ Confirm Check-In
+                       Confirm Check-In
                     </button>
                   </div>
                 )}
 
-                {/* ✅ Buttons after scan */}
+                {/*  Buttons after scan */}
                 {!scanning && (
                   <div className="mt-4">
                     <button className="btn btn-secondary" onClick={() => window.location.reload()}>
-                      🔄 Scan Another Ticket
+                       Scan Another Ticket
                     </button>
                   </div>
                 )}
