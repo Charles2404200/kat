@@ -38,7 +38,7 @@ export function appendLog(action, email, staff = "System") {
   fs.writeFileSync(LOG_FILE, JSON.stringify(logs, null, 2));
 }
 
-// ✅ Admin login
+//  Admin login
 router.post("/login", (req, res) => {
   const { username, password } = req.body;
   if (username === ADMIN_USER && password === ADMIN_PASS) {
@@ -47,7 +47,7 @@ router.post("/login", (req, res) => {
   return res.status(401).json({ success: false, error: "Invalid credentials" });
 });
 
-// ✅ Lấy toàn bộ vé
+//  Lấy toàn bộ vé
 router.get("/tickets", async (req, res) => {
   if (req.headers.token !== ADMIN_TOKEN)
     return res.status(403).json({ error: "Unauthorized" });
@@ -58,7 +58,7 @@ router.get("/tickets", async (req, res) => {
   res.json({ success: true, tickets });
 });
 
-// ✅ Xoá vé
+//  Xoá vé
 router.delete("/ticket/:id", async (req, res) => {
   if (req.headers.token !== ADMIN_TOKEN)
     return res.status(403).json({ error: "Unauthorized" });
@@ -71,7 +71,7 @@ router.delete("/ticket/:id", async (req, res) => {
   res.json({ success: true, message: "Ticket deleted" });
 });
 
-// ✅ Dashboard stats
+//  Dashboard stats
 router.get("/dashboard", async (req, res) => {
   if (req.headers.token !== ADMIN_TOKEN)
     return res.status(403).json({ error: "Unauthorized" });
@@ -105,7 +105,7 @@ router.get("/dashboard", async (req, res) => {
   });
 });
 
-// ✅ Lấy vé có dùng dịch vụ
+//  Lấy vé có dùng dịch vụ
 router.get("/service-usage", async (req, res) => {
   if (req.headers.token !== ADMIN_TOKEN)
     return res.status(403).json({ error: "Unauthorized" });
@@ -124,7 +124,7 @@ router.get("/service-usage", async (req, res) => {
   res.json({ success: true, tickets });
 });
 
-// ✅ Export CSV
+//  Export CSV
 router.get("/export", async (req, res) => {
   if (req.headers.token !== ADMIN_TOKEN)
     return res.status(403).json({ error: "Unauthorized" });
@@ -162,7 +162,7 @@ router.get("/export", async (req, res) => {
   return res.send(csv);
 });
 
-// ✅ Stock summary
+//  Stock summary
 router.get("/ticket-stock-summary", async (req, res) => {
   if (req.headers.token !== ADMIN_TOKEN)
     return res.status(403).json({ success: false, error: "Unauthorized" });
@@ -191,7 +191,7 @@ router.get("/ticket-stock-summary", async (req, res) => {
   return res.json({ success: true, summary });
 });
 
-// ✅ Update stock
+//  Update stock
 router.post("/update-stock", async (req, res) => {
   if (req.headers.token !== ADMIN_TOKEN)
     return res.status(403).json({ success: false, error: "Unauthorized" });
@@ -212,7 +212,7 @@ router.post("/update-stock", async (req, res) => {
   if (newTotal < sold) {
     return res.status(400).json({
       success: false,
-      error: `❌ Cannot reduce below sold tickets (${sold})`,
+      error: ` Cannot reduce below sold tickets (${sold})`,
     });
   }
 
@@ -234,12 +234,12 @@ router.post("/update-stock", async (req, res) => {
 
   return res.json({
     success: true,
-    message: `✅ Stock updated for ${ticketType}`,
+    message: ` Stock updated for ${ticketType}`,
     data: stock,
   });
 });
 
-// ✅ Add new stock
+//  Add new stock
 router.post("/add-stock", async (req, res) => {
   if (req.headers.token !== ADMIN_TOKEN)
     return res.status(403).json({ success: false, error: "Unauthorized" });
@@ -262,7 +262,7 @@ router.post("/add-stock", async (req, res) => {
     data: { ticketType, total, remaining: total, price },
   });
 
-  appendLog(`➕ Added new stock type ${ticketType}`, "admin@system", "Admin");
+  appendLog(` Added new stock type ${ticketType}`, "admin@system", "Admin");
 
   res.json({ success: true, message: "Stock created", stock });
 });
