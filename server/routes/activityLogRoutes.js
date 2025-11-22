@@ -13,7 +13,7 @@ router.get("/activity-log", async (req, res) => {
     return res.status(403).json({ error: "Unauthorized" });
   }
 
-  // ✅ Lấy toàn bộ ticket từ Prisma
+  //  Lấy toàn bộ ticket từ Prisma
   const tickets = await prisma.ticket.findMany();
 
   const logs = tickets.map((t) => ({
