@@ -22,7 +22,7 @@ async function getSoldQuantity(ticketType, status) {
   return agg._sum.quantity ?? 0;
 }
 
-// ✅ Get available stock
+//  Get available stock
 router.get("/available-stock", async (req, res) => {
   try {
     const stocks = await prisma.ticketStock.findMany();
@@ -49,7 +49,7 @@ router.get("/available-stock", async (req, res) => {
   }
 });
 
-// ✅ Create pending ticket
+//  Create pending ticket
 router.post("/create", async (req, res) => {
   try {
     const { buyerEmail, ticketType, quantity, paymentMethod } = req.body;
@@ -57,7 +57,7 @@ router.post("/create", async (req, res) => {
 
     const stock = await prisma.ticketStock.findUnique({ where: { ticketType } });
     if (!stock) {
-      return res.status(400).json({ error: "❌ Ticket type not found" });
+      return res.status(400).json({ error: " Ticket type not found" });
     }
 
     const sold = await getSoldQuantity(ticketType, "paid");
@@ -66,7 +66,7 @@ router.post("/create", async (req, res) => {
 
     if (remaining <= 0 || quantity > remaining) {
       return res.status(400).json({
-        error: `❌ Not enough tickets available! Only ${remaining > 0 ? remaining : 0} left.`,
+        error: ` Not enough tickets available! Only ${remaining > 0 ? remaining : 0} left.`,
       });
     }
 
@@ -75,7 +75,7 @@ router.post("/create", async (req, res) => {
     });
     if (existingPaid) {
       return res.status(403).json({
-        error: "❌ You already bought a ticket! Each person can only purchase 1 order.",
+        error: " You already bought a ticket! Each person can only purchase 1 order.",
         ticketType: existingPaid.ticketType,
         quantity: existingPaid.quantity,
         createdAt: existingPaid.createdAt,
@@ -92,7 +92,7 @@ router.post("/create", async (req, res) => {
       const expiresAt = new Date(existingPending.createdAt.getTime() + EXPIRATION_MINUTES * 60000);
 
       return res.status(409).json({
-        error: "⚠️ You already have a pending ticket. Complete payment first!",
+        error: " You already have a pending ticket. Complete payment first!",
         ticketId: existingPending.id,
         ticketType: existingPending.ticketType,
         quantity: existingPending.quantity,
@@ -130,12 +130,12 @@ router.post("/create", async (req, res) => {
       expiresAt,
     });
   } catch (err) {
-    console.error("❌ Ticket create error:", err);
+    console.error(" Ticket create error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
 
-// ✅ Confirm payment
+//  Confirm payment
 router.post("/confirm-payment", async (req, res) => {
   try {
     const { ticketId } = req.body;
@@ -174,16 +174,16 @@ router.post("/confirm-payment", async (req, res) => {
 
     res.json({
       success: true,
-      message: "✅ Payment confirmed! Unique ticket QR sent via email.",
+      message: " Payment confirmed! Unique ticket QR sent via email.",
       eventQRUrl,
     });
   } catch (err) {
-    console.error("❌ Confirm Payment Error:", err);
+    console.error(" Confirm Payment Error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
 
-// ✅ Check ticket status
+//  Check ticket status
 router.get("/status/:ticketId", async (req, res) => {
   try {
     const { ticketId } = req.params;
@@ -198,7 +198,7 @@ router.get("/status/:ticketId", async (req, res) => {
 
     res.json({ success: true, status: ticket.status, expiresAt });
   } catch (err) {
-    console.error("❌ Check Status Error:", err);
+    console.error(" Check Status Error:", err);
     res.status(500).json({ success: false, error: "Server error" });
   }
 });
