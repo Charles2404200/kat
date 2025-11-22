@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import Navbar from "../components/Navbar"; // ✅ Import Navbar component
+import Navbar from "../components/Navbar";
 
 export default function Home() {
   const eventDate = new Date("2025-09-02T00:00:00").getTime();
@@ -28,10 +28,10 @@ export default function Home() {
 
   return (
     <>
-      {/* ✅ Navbar từ components/Navbar.jsx */}
+      {/*  Navbar từ components/Navbar.jsx */}
       <Navbar />
 
-      {/* ✅ HERO SECTION */}
+      {/*  HERO SECTION */}
       <header
         className="vh-100 d-flex flex-column justify-content-center text-center text-white"
         style={{
@@ -45,12 +45,12 @@ export default function Home() {
         <div className="container">
           <h2 className="text-warning fw-semibold">MEGA EVENT 2025</h2>
           <h1 className="display-2 fw-bold mb-3">KAT-2 FESTIVAL</h1>
-          <p className="lead">📍 MY DINH NATIONAL STADIUM</p>
+          <p className="lead"> MY DINH NATIONAL STADIUM</p>
           <p className="fs-5 mb-4">
-            📅 02 - 03 September 2025 | 7:30PM - 11:30PM
+             02 - 03 September 2025 | 7:30PM - 11:30PM
           </p>
 
-          {/* ✅ COUNTDOWN */}
+          {/*  COUNTDOWN */}
           <div className="row justify-content-center g-3 mb-4">
             <div className="col-3 bg-dark rounded p-3">
               <h2 className="fw-bold text-warning">{timeLeft.days}</h2>
@@ -70,10 +70,10 @@ export default function Home() {
             </div>
           </div>
 
-          {/* ✅ CTA BUTTONS */}
+          {/*  CTA BUTTONS */}
           <div className="d-flex justify-content-center gap-3">
             <a href="/buy" className="btn btn-warning btn-lg fw-bold">
-              🎟️ Get Ticket
+               Get Ticket
             </a>
             <a href="#why" className="btn btn-outline-light btn-lg">
               Learn More
@@ -82,10 +82,10 @@ export default function Home() {
         </div>
       </header>
 
-      {/* ✅ WHY JOIN SECTION */}
+      {/*  WHY JOIN SECTION */}
       <section id="why" className="py-5 bg-light text-center">
         <div className="container">
-          <h3 className="fw-bold display-6 mb-4 text-dark">🔥 Why You Can’t Miss This Event?</h3>
+          <h3 className="fw-bold display-6 mb-4 text-dark"> Why You Can’t Miss This Event?</h3>
           <p className="lead text-muted mb-5">
             A festival of <strong>music, lights, and unforgettable experiences</strong> with smart ticketing & seamless QR check-in.
           </p>
@@ -94,7 +94,7 @@ export default function Home() {
             <div className="col-md-4">
               <div className="card h-100 shadow">
                 <div className="card-body">
-                  <h4 className="card-title text-warning">🎫 Online Tickets</h4>
+                  <h4 className="card-title text-warning"> Online Tickets</h4>
                   <p className="card-text">
                     Buy tickets in seconds and receive a <strong>QR code instantly</strong>.
                   </p>
@@ -105,7 +105,7 @@ export default function Home() {
             <div className="col-md-4">
               <div className="card h-100 shadow">
                 <div className="card-body">
-                  <h4 className="card-title text-success">✅ Fast Check-in</h4>
+                  <h4 className="card-title text-success"> Fast Check-in</h4>
                   <p className="card-text">
                     Scan your QR code at entry – <strong>no long lines, no hassle</strong>.
                   </p>
@@ -116,7 +116,7 @@ export default function Home() {
             <div className="col-md-4">
               <div className="card h-100 shadow">
                 <div className="card-body">
-                  <h4 className="card-title text-primary">🎉 Amazing Experience</h4>
+                  <h4 className="card-title text-primary"> Amazing Experience</h4>
                   <p className="card-text">
                     Live music, incredible performances, and <strong>premium services</strong> for all guests.
                   </p>
@@ -127,7 +127,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ✅ FOOTER */}
+      {/*  FOOTER */}
       <footer className="bg-dark text-center text-white py-4">
         Powered by <strong>KAT-2 Ticketing</strong> © 2025
       </footer>
